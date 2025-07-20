@@ -50,7 +50,9 @@ func (jr *JobRunner) start() error {
 		var jobMessage shared.JobMessage
 		if err := json.Unmarshal(delivery.Body, &jobMessage); err != nil {
 			log.Printf("Failed to unmarshal job message: %v", err)
-			delivery.Nack(false, false)
+			if err := delivery.Nack(false, false); err != nil {
+				log.Printf("Failed to nack message: %v", err)
+			}
 			continue
 		}
 
@@ -82,7 +84,9 @@ func (jr *JobRunner) start() error {
 			}
 
 			// Acknowledge the message
-			d.Ack(false)
+			if err := d.Ack(false); err != nil {
+				log.Printf("Failed to ack message: %v", err)
+			}
 		}(jobMessage, delivery)
 	}
 
@@ -177,21 +181,6 @@ func (jr *JobRunner) generateJobResult(jobMessage shared.JobMessage, duration ti
 	return fmt.Sprintf("%s. %s", baseResult, specificResult)
 }
 
-// simulateComplexJob demonstrates different types of work that could be done
-func (jr *JobRunner) simulateComplexJob(description string) string {
-	// Simulate different types of work based on description
-	switch {
-	case contains(description, "calculation"):
-		return jr.simulateCalculation()
-	case contains(description, "data"):
-		return jr.simulateDataProcessing()
-	case contains(description, "report"):
-		return jr.simulateReportGeneration()
-	default:
-		return jr.simulateGenericWork()
-	}
-}
-
 func (jr *JobRunner) simulateCalculation() string {
 	// Simulate some mathematical work
 	result := 0
@@ -242,9 +231,6 @@ func contains(s, substr string) bool {
 }
 
 func main() {
-	// Seed random number generator
-	rand.Seed(time.Now().UnixNano())
-
 	runner := NewJobRunner()
 
 	if err := runner.initRabbitMQ(); err != nil {
