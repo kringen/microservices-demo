@@ -65,6 +65,41 @@ This directory contains utility scripts to help with development, testing, and d
 
 ---
 
+### ✅ pre-commit.sh
+
+**Purpose**: Runs the same quality checks as CI to ensure code will pass before committing.
+
+**Usage**:
+```bash
+./scripts/pre-commit.sh
+```
+
+**What it checks**:
+- ✅ **Dependencies**: Downloads and verifies Go modules
+- ✅ **Static Analysis**: Runs `go vet` for potential issues
+- ✅ **Code Formatting**: Ensures all files are properly formatted with `gofmt`
+- ✅ **Linting**: Runs `golangci-lint` for code quality (installs if missing)
+- ✅ **Testing**: Comprehensive test suite including:
+  - Root module tests
+  - Individual service tests (api-server, frontend, job-runner, shared)
+  - Race condition detection
+  - Integration tests (if RabbitMQ is available)
+
+**Smart Features**:
+- 🟡 **Auto-starts RabbitMQ** if not running (via Docker)
+- 🔄 **Fallback to unit tests** if RabbitMQ unavailable
+- 📦 **Auto-installs golangci-lint** if missing
+- 🎨 **Color-coded output** for easy reading
+- ⚡ **Fast feedback** - stops on first failure
+
+**When to use**:
+- Before committing code to ensure CI will pass
+- During development to catch issues early
+- As part of IDE pre-commit hooks
+- For local quality assurance
+
+---
+
 ## Prerequisites
 
 Both scripts require:

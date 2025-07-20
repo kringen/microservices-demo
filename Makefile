@@ -50,39 +50,6 @@ test-integration:
 	go test -v -tags=integration ./...
 	@echo "Integration tests passed!"
 
-# Format all Go code
-fmt:
-	@echo "Formatting Go code..."
-	go fmt ./...
-	@echo "Code formatting complete!"
-
-# Check if code is formatted
-fmt-check:
-	@echo "Checking Go code formatting..."
-	@if [ "$$(gofmt -s -l . | wc -l)" -gt 0 ]; then \
-		echo "The following files are not formatted:"; \
-		gofmt -s -l .; \
-		echo "Run 'make fmt' to fix formatting issues."; \
-		exit 1; \
-	else \
-		echo "All Go code is properly formatted!"; \
-	fi
-
-# Lint code
-lint:
-	@echo "Running golangci-lint..."
-	@if command -v golangci-lint > /dev/null; then \
-		golangci-lint run ./...; \
-	else \
-		echo "golangci-lint not found. Install it with:"; \
-		echo "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
-	fi
-
-# Run go vet
-vet:
-	@echo "Running go vet..."
-	go vet ./...
-
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
@@ -307,6 +274,19 @@ benchmark:
 	@echo "Running benchmarks..."
 	go test -bench=. -benchmem ./...
 
+# Check code formatting
+fmt:
+	go fmt ./...
+
+# Run linter (requires golangci-lint)
+lint:
+	@if command -v golangci-lint > /dev/null; then \
+		golangci-lint run; \
+	else \
+		echo "golangci-lint not found. Install it with:"; \
+		echo "go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+	fi
+
 # Show help
 help:
 	@echo "Available commands:"
@@ -341,14 +321,6 @@ help:
 	@echo "🧪 Testing:"
 	@echo "  make test           - Run all tests"
 	@echo "  make test-coverage  - Run tests with coverage"
-	@echo "  make test-ci        - Run comprehensive CI tests"
-	@echo "  make test-integration - Run integration tests"
-	@echo ""
-	@echo "🔍 Code Quality:"
-	@echo "  make fmt            - Format all Go code"
-	@echo "  make fmt-check      - Check if code is formatted"
-	@echo "  make lint           - Run golangci-lint"
-	@echo "  make vet            - Run go vet"
 	@echo ""
 	@echo "🛠️ Development Tools:"
 	@echo "  make dev-api        - Run API with hot reload"

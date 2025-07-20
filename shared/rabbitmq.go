@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 
@@ -73,7 +74,8 @@ func (c *RabbitMQClient) PublishJob(job JobMessage) error {
 		return err
 	}
 
-	return c.channel.Publish(
+	return c.channel.PublishWithContext(
+		context.TODO(),
 		"",           // exchange
 		JobQueueName, // routing key
 		false,        // mandatory
@@ -91,7 +93,8 @@ func (c *RabbitMQClient) PublishResult(result JobResult) error {
 		return err
 	}
 
-	return c.channel.Publish(
+	return c.channel.PublishWithContext(
+		context.TODO(),
 		"",              // exchange
 		ResultQueueName, // routing key
 		false,           // mandatory

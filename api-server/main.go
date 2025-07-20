@@ -123,17 +123,21 @@ func (s *APIServer) createJob(c *gin.Context) {
 	s.jobs[job.ID] = job
 	s.jobsMutex.Unlock()
 
-	// Send job to queue
-	jobMessage := shared.JobMessage{
-		JobID:       job.ID,
-		Title:       job.Title,
-		Description: job.Description,
-	}
+	// Send job to queue (only if RabbitMQ is initialized)
+	if s.rabbitmq != nil {
+		jobMessage := shared.JobMessage{
+			JobID:       job.ID,
+			Title:       job.Title,
+			Description: job.Description,
+		}
 
-	if err := s.rabbitmq.PublishJob(jobMessage); err != nil {
-		log.Printf("Failed to publish job: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue job"})
-		return
+		if err := s.rabbitmq.PublishJob(jobMessage); err != nil {
+			log.Printf("Failed to publish job: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue job"})
+			return
+		}
+	} else {
+		log.Println("RabbitMQ not initialized - job not queued (test mode?)")
 	}
 
 	c.JSON(http.StatusCreated, job)

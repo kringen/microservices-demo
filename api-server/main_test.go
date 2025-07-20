@@ -33,10 +33,28 @@ func TestCreateJob(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Since RabbitMQ is not initialized, this will return 500
-	// In a real test environment, we would mock the RabbitMQ client
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status code %d, got %d", http.StatusInternalServerError, w.Code)
+	// Since RabbitMQ is not initialized, job creation should still succeed
+	// but the job won't be queued (test mode)
+	if w.Code != http.StatusCreated {
+		t.Errorf("Expected status code %d, got %d", http.StatusCreated, w.Code)
+	}
+
+	// Verify the response contains the job
+	var response shared.Job
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Errorf("Failed to parse response: %v", err)
+	}
+
+	if response.Title != jobRequest.Title {
+		t.Errorf("Expected job title %s, got %s", jobRequest.Title, response.Title)
+	}
+
+	if response.Description != jobRequest.Description {
+		t.Errorf("Expected job description %s, got %s", jobRequest.Description, response.Description)
+	}
+
+	if response.Status != "pending" {
+		t.Errorf("Expected job status 'pending', got %s", response.Status)
 	}
 }
 
