@@ -39,7 +39,7 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
 
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cache/go-build
@@ -110,7 +110,7 @@ jobs:
         RABBITMQ_URL: amqp://guest:guest@localhost:5672/
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         files: ./coverage.out,./api-server/coverage-api.out,./frontend/coverage-frontend.out,./job-runner/coverage-job-runner.out,./shared/coverage-shared.out
         flags: unittests
@@ -136,7 +136,7 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
 
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cache/go-build
@@ -151,7 +151,7 @@ jobs:
         go build -v -o bin/${{ matrix.service }} .
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.service }}-binary
         path: ${{ matrix.service }}/bin/${{ matrix.service }}
@@ -231,7 +231,7 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
 
     - name: Cache Go modules
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cache/go-build
