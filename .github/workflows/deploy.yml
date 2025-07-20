@@ -1,0 +1,75 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+        - development
+        - production
+      tag:
+        description: 'Image tag to deploy'
+        required: false
+        default: 'latest'
+        type: string
+      hostname:
+        description: 'Custom hostname (optional)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: kringen
+  
+jobs:
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: self-hosted # Assuming you have a self-hosted runner with kubectl access
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set deployment variables
+      id: vars
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          echo "hostname=${{ github.event.inputs.hostname }}" >> $GITHUB_OUTPUT
+        else
+          echo "environment=development" >> $GITHUB_OUTPUT
+          echo "tag=latest" >> $GITHUB_OUTPUT
+          echo "hostname=" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Deploy to Kubernetes
+      run: |
+        cd k8s
+        if [ -n "${{ steps.vars.outputs.hostname }}" ]; then
+          ./deploy.sh ${{ steps.vars.outputs.environment }} apply ${{ env.REGISTRY }} ${{ steps.vars.outputs.tag }} ${{ steps.vars.outputs.hostname }}
+        else
+          ./deploy.sh ${{ steps.vars.outputs.environment }} apply ${{ env.REGISTRY }} ${{ steps.vars.outputs.tag }}
+        fi
+
+    - name: Verify deployment
+      run: |
+        echo "Waiting for deployment to be ready..."
+        kubectl wait --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=microservices-demo -n microservices-demo
+        
+        echo "Checking pod status..."
+        kubectl get pods -n microservices-demo
+        
+        echo "Deployment completed successfully!"
+
+    - name: Run post-deployment tests
+      run: |
+        echo "Running post-deployment health checks..."
+        # Add any post-deployment verification scripts here
+        kubectl get pods -n microservices-demo -o wide

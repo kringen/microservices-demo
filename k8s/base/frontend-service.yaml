@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: microservices-demo
+  labels:
+    app.kubernetes.io/name: microservices-demo
+    app.kubernetes.io/component: frontend
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: microservices-demo
+    app.kubernetes.io/component: frontend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-external
+  namespace: microservices-demo
+  labels:
+    app.kubernetes.io/name: microservices-demo
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: external-access
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 31080  # External access for frontend
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: microservices-demo
+    app.kubernetes.io/component: frontend

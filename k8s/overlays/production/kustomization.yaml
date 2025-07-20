@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: microservices-demo-production
+
+resources:
+  - ../../base
+
+labels:
+  - includeSelectors: true
+    pairs:
+      environment: production
+
+patchesStrategicMerge:
+  - deployment-patches.yaml
+  - configmap-patch.yaml
+  - secrets-patch.yaml
+  - ingress-patch.yaml
+
+images:
+  - name: microservices-api-server
+    newName: registry.company.com/microservices-api-server
+    newTag: v1.0.0
+  - name: microservices-job-runner
+    newName: registry.company.com/microservices-job-runner
+    newTag: v1.0.0
+  - name: microservices-frontend
+    newName: registry.company.com/microservices-frontend
+    newTag: v1.0.0
+
+replicas:
+  - name: api-server
+    count: 3
+  - name: job-runner
+    count: 5
+  - name: frontend
+    count: 3

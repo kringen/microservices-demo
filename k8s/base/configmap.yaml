@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: microservices-demo
+  labels:
+    app.kubernetes.io/name: microservices-demo
+    app.kubernetes.io/component: config
+data:
+  # RabbitMQ Configuration
+  RABBITMQ_HOST: "rabbitmq-service"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_URL: "amqp://$(RABBITMQ_USERNAME):$(RABBITMQ_PASSWORD)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)/"
+  
+  # Service URLs
+  API_SERVER_URL: "http://api-server-service:8081"
+  FRONTEND_URL: "http://frontend-service:8080"
+  
+  # Application Configuration
+  GIN_MODE: "release"
+  
+  # Logging
+  LOG_LEVEL: "info"
+  
+  # Job Runner Configuration
+  JOB_TIMEOUT: "60s"
+  MAX_CONCURRENT_JOBS: "10"
+  
+  # Health Check Configuration
+  HEALTH_CHECK_INTERVAL: "30s"

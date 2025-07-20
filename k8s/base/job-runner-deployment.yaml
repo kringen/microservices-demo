@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: job-runner
+  namespace: microservices-demo
+  labels:
+    app.kubernetes.io/name: microservices-demo
+    app.kubernetes.io/component: job-runner
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 3  # Multiple replicas for load balancing
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: microservices-demo
+      app.kubernetes.io/component: job-runner
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: microservices-demo
+        app.kubernetes.io/component: job-runner
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "false"  # Job runner doesn't expose HTTP metrics
+    spec:
+      containers:
+        - name: job-runner
+          image: microservices-job-runner:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-credentials
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq-credentials
+                  key: password
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: RABBITMQ_HOST
+            - name: RABBITMQ_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: RABBITMQ_PORT
+            - name: RABBITMQ_URL
+              value: "amqp://$(RABBITMQ_USERNAME):$(RABBITMQ_PASSWORD)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)/"
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: LOG_LEVEL
+            - name: JOB_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: JOB_TIMEOUT
+            - name: MAX_CONCURRENT_JOBS
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MAX_CONCURRENT_JOBS
+          # No HTTP probes for job runner, but we can check process health
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f main > /dev/null"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f main > /dev/null"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        fsGroup: 1000

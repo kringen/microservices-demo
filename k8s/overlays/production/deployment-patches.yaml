@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+  namespace: microservices-demo
+spec:
+  template:
+    spec:
+      containers:
+        - name: api-server
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          env:
+            - name: GOGC
+              value: "100"  # Optimize garbage collection for production
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: job-runner
+  namespace: microservices-demo
+spec:
+  template:
+    spec:
+      containers:
+        - name: job-runner
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          env:
+            - name: GOGC
+              value: "100"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: microservices-demo
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "1000m"
+          env:
+            - name: GOGC
+              value: "100"

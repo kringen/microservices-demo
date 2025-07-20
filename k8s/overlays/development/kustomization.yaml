@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: microservices-demo-development
+
+resources:
+  - ../../base
+
+namePrefix: dev-
+
+labels:
+  - includeSelectors: true
+    pairs:
+      environment: development
+
+patchesStrategicMerge:
+  - deployment-patches.yaml
+  - configmap-patch.yaml
+  - ingress-patch.yaml
+
+images:
+  - name: microservices-api-server
+    newName: localhost:5000/microservices-api-server
+    newTag: dev-latest
+  - name: microservices-job-runner
+    newName: localhost:5000/microservices-job-runner
+    newTag: dev-latest
+  - name: microservices-frontend
+    newName: localhost:5000/microservices-frontend
+    newTag: dev-latest
