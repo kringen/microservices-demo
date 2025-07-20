@@ -48,7 +48,7 @@ func NewRabbitMQClient(url string) (*RabbitMQClient, error) {
 // declareQueues declares the required queues
 func (c *RabbitMQClient) declareQueues() error {
 	queues := []string{JobQueueName, ResultQueueName}
-	
+
 	for _, queueName := range queues {
 		_, err := c.channel.QueueDeclare(
 			queueName, // name
@@ -62,7 +62,7 @@ func (c *RabbitMQClient) declareQueues() error {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -92,10 +92,10 @@ func (c *RabbitMQClient) PublishResult(result JobResult) error {
 	}
 
 	return c.channel.Publish(
-		"",             // exchange
+		"",              // exchange
 		ResultQueueName, // routing key
-		false,          // mandatory
-		false,          // immediate
+		false,           // mandatory
+		false,           // immediate
 		amqp.Publishing{
 			ContentType: "application/json",
 			Body:        body,

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"microservices-demo/shared"
-	
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -24,13 +24,13 @@ func NewJobRunner() *JobRunner {
 
 func (jr *JobRunner) initRabbitMQ() error {
 	var err error
-	
+
 	// Get RabbitMQ URL from environment variable
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
 		rabbitmqURL = "amqp://guest:guest@localhost:5672/"
 	}
-	
+
 	jr.rabbitmq, err = shared.NewRabbitMQClient(rabbitmqURL)
 	if err != nil {
 		return err
@@ -64,16 +64,16 @@ func (jr *JobRunner) start() error {
 				Status:      shared.JobStatusProcessing,
 				CompletedAt: time.Now(), // Use this as "started at" timestamp
 			}
-			
+
 			if err := jr.rabbitmq.PublishResult(processingUpdate); err != nil {
 				log.Printf("Failed to publish processing status for job %s: %v", msg.JobID, err)
 			} else {
 				log.Printf("Job %s marked as processing", msg.JobID)
 			}
-			
+
 			// Process the job and get final result
 			result := jr.processJob(msg)
-			
+
 			// Publish the final result
 			if err := jr.rabbitmq.PublishResult(result); err != nil {
 				log.Printf("Failed to publish result for job %s: %v", msg.JobID, err)
@@ -98,26 +98,26 @@ func (jr *JobRunner) processJob(jobMessage shared.JobMessage) shared.JobResult {
 
 	// Process the job with timeout protection
 	startTime := time.Now()
-	
+
 	// Use a timeout context to ensure jobs never exceed 1 minute
 	timeout := time.After(60 * time.Second)
 	done := make(chan bool)
-	
+
 	go func() {
 		time.Sleep(processingTime)
 		done <- true
 	}()
 
 	var result shared.JobResult
-	
+
 	select {
 	case <-done:
 		// Job completed within time limit
 		actualDuration := time.Since(startTime)
-		
+
 		// Simulate random success/failure (90% success rate)
 		success := rand.Float32() < 0.9
-		
+
 		result = shared.JobResult{
 			JobID:       jobMessage.JobID,
 			CompletedAt: time.Now(),
@@ -129,11 +129,11 @@ func (jr *JobRunner) processJob(jobMessage shared.JobMessage) shared.JobResult {
 			log.Printf("Job %s completed successfully in %v", jobMessage.JobID, actualDuration)
 		} else {
 			result.Status = shared.JobStatusFailed
-			result.Error = fmt.Sprintf("Job '%s' failed during processing: simulated random failure after %v", 
+			result.Error = fmt.Sprintf("Job '%s' failed during processing: simulated random failure after %v",
 				jobMessage.Title, actualDuration)
 			log.Printf("Job %s failed after %v", jobMessage.JobID, actualDuration)
 		}
-		
+
 	case <-timeout:
 		// Job exceeded 1 minute timeout
 		result = shared.JobResult{
@@ -151,12 +151,12 @@ func (jr *JobRunner) processJob(jobMessage shared.JobMessage) shared.JobResult {
 // generateJobResult creates a detailed result message based on job content
 func (jr *JobRunner) generateJobResult(jobMessage shared.JobMessage, duration time.Duration) string {
 	baseResult := fmt.Sprintf("Job '%s' completed successfully after %v", jobMessage.Title, duration)
-	
+
 	// Generate specific results based on job description/title
 	var specificResult string
 	description := strings.ToLower(jobMessage.Description)
 	title := strings.ToLower(jobMessage.Title)
-	
+
 	switch {
 	case contains(description, "calculation") || contains(title, "calculation"):
 		specificResult = jr.simulateCalculation()
@@ -173,7 +173,7 @@ func (jr *JobRunner) generateJobResult(jobMessage shared.JobMessage, duration ti
 	default:
 		specificResult = jr.simulateGenericWork()
 	}
-	
+
 	return fmt.Sprintf("%s. %s", baseResult, specificResult)
 }
 
@@ -253,7 +253,7 @@ func main() {
 	defer runner.rabbitmq.Close()
 
 	log.Println("Job Runner is starting...")
-	
+
 	if err := runner.start(); err != nil {
 		log.Fatalf("Failed to start job runner: %v", err)
 	}

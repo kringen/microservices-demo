@@ -14,15 +14,15 @@ const (
 
 // Job represents a job in the system
 type Job struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Status      JobStatus `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Status      JobStatus  `json:"status"`
+	CreatedAt   time.Time  `json:"created_at"`
 	StartedAt   *time.Time `json:"started_at,omitempty"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	Result      string    `json:"result,omitempty"`
-	Error       string    `json:"error,omitempty"`
+	Result      string     `json:"result,omitempty"`
+	Error       string     `json:"error,omitempty"`
 }
 
 // JobRequest represents a request to create a new job

@@ -175,7 +175,7 @@ func TestGenerateJobResult(t *testing.T) {
 
 func TestJobTimeout(t *testing.T) {
 	runner := NewJobRunner()
-	
+
 	// Create a job that would normally take longer than 1 minute
 	// For testing, we'll verify the timeout structure exists
 	jobMessage := shared.JobMessage{
@@ -183,23 +183,23 @@ func TestJobTimeout(t *testing.T) {
 		Title:       "Long Running Job",
 		Description: "A job that should timeout",
 	}
-	
+
 	// We can't easily test the full timeout in unit tests (takes too long)
 	// but we can verify the job completes normally within our test timeframe
 	start := time.Now()
 	result := runner.processJob(jobMessage)
 	duration := time.Since(start)
-	
+
 	// Verify the job completed
 	if result.JobID != jobMessage.JobID {
 		t.Errorf("Expected JobID %s, got %s", jobMessage.JobID, result.JobID)
 	}
-	
+
 	// Verify it didn't take longer than the 60 second timeout
 	if duration > 61*time.Second {
 		t.Errorf("Job took longer than expected timeout: %v", duration)
 	}
-	
+
 	// Log the actual time for reference
 	t.Logf("Job completed in %v", duration)
 }

@@ -334,6 +334,17 @@ Interactive demonstration of the complete job processing workflow:
 - Shows final results with detailed output
 - Perfect for demos and testing end-to-end functionality
 
+### ✅ Pre-commit Checks
+```bash
+./scripts/pre-commit.sh
+```
+Runs the same checks as CI to ensure your code will pass:
+- Code formatting verification (`gofmt`)
+- Static analysis (`go vet`)
+- All unit tests
+- Linting (`golangci-lint`)
+- Perfect for running before committing code
+
 See [scripts/README.md](scripts/README.md) for detailed documentation.
 
 ## Testing

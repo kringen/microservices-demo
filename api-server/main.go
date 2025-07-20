@@ -28,13 +28,13 @@ func NewAPIServer() *APIServer {
 
 func (s *APIServer) initRabbitMQ() error {
 	var err error
-	
+
 	// Get RabbitMQ URL from environment variable
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
 		rabbitmqURL = "amqp://guest:guest@localhost:5672/"
 	}
-	
+
 	s.rabbitmq, err = shared.NewRabbitMQClient(rabbitmqURL)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (s *APIServer) updateJobStatus(result shared.JobResult) {
 		job.Status = result.Status
 		job.Result = result.Result
 		job.Error = result.Error
-		
+
 		// Handle different status updates
 		switch result.Status {
 		case shared.JobStatusProcessing:
@@ -87,14 +87,14 @@ func (s *APIServer) updateJobStatus(result shared.JobResult) {
 		case shared.JobStatusCompleted, shared.JobStatusFailed:
 			// Set completion time for final states
 			job.CompletedAt = &result.CompletedAt
-			
+
 			// Calculate and log processing duration
 			if job.StartedAt != nil {
 				duration := result.CompletedAt.Sub(*job.StartedAt)
 				log.Printf("Job %s completed in %v", result.JobID, duration)
 			}
 		}
-		
+
 		// Log status change for monitoring
 		if previousStatus != result.Status {
 			log.Printf("Job %s status changed: %s -> %s", result.JobID, previousStatus, result.Status)
