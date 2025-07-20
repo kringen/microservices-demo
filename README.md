@@ -249,6 +249,8 @@ The project uses a **hierarchical Makefile structure**:
 #### Testing & Quality
 - `make test` - Run all tests across all services
 - `make test-coverage` - Run tests with coverage report
+- `make test-ci` - Run comprehensive CI tests (includes individual service tests)
+- `make test-integration` - Run integration tests with real services
 - `make benchmark` - Run benchmark tests
 - `make fmt` - Format all Go code
 - `make lint` - Run linter (requires golangci-lint)
@@ -370,29 +372,188 @@ go test ./frontend/
 
 ## Kubernetes Deployment
 
-Deploy to Kubernetes using the provided manifests:
+Deploy to Kubernetes using the enhanced deployment script with support for multiple environments, container registries, and custom hostnames.
+
+### Quick Start
 
 ```bash
-# Deploy to development environment
-./k8s/deploy.sh development
+# Deploy to development environment (uses defaults)
+./k8s/deploy.sh development apply
 
-# Deploy to production environment  
-./k8s/deploy.sh production
+# Deploy to production environment
+./k8s/deploy.sh production apply
+
+# Deploy with custom registry and version
+./k8s/deploy.sh development apply kringen v1.2.3
+
+# Deploy with custom hostname
+./k8s/deploy.sh development apply kringen v1.2.3 my-app.example.com
+```
+
+### Deployment Script Usage
+
+**Syntax**: `./k8s/deploy.sh [environment] [action] [registry] [tag] [hostname]`
+
+**Parameters**:
+- `environment` - Target environment (`development` or `production`)
+- `action` - Action to perform (`apply`, `delete`, `diff`, or `build`)
+- `registry` - Container registry URL (optional, defaults to `localhost:5000`)
+- `tag` - Image tag (optional, defaults to `latest`)
+- `hostname` - Custom hostname for ingress (optional, uses environment defaults)
+
+**Examples**:
+```bash
+# Development deployment with defaults
+./k8s/deploy.sh development apply
+# → Uses: localhost:5000 registry, latest tag, microservices-demo.local hostname
+
+# Production deployment with custom settings
+./k8s/deploy.sh production apply kringen v2.1.0 microservices.kringen.io
+# → Uses: kringen registry, v2.1.0 tag, custom hostname
+
+# View what would be deployed without applying
+./k8s/deploy.sh development diff kringen v1.0.0
+
+# Build manifests only (for debugging)
+./k8s/deploy.sh development build
+
+# Clean up deployment
+./k8s/deploy.sh development delete
+```
+
+### Environment Configuration
+
+The deployment system supports environment-specific configurations:
+
+#### Development Environment
+- **Default hostname**: `microservices-demo.local`
+- **Default registry**: `localhost:5000`
+- **Resource limits**: Lower CPU/memory for development
+- **Replicas**: Single replica for each service
+- **Debug mode**: Enabled with verbose logging
+
+#### Production Environment  
+- **Default hostname**: `microservices-demo.kringen.io`
+- **Default registry**: `registry.company.com`
+- **Resource limits**: Production-grade CPU/memory
+- **Replicas**: Multiple replicas with autoscaling
+- **Security**: Hardened security contexts
+
+### TLS and Certificate Management
+
+The ingress is configured with **cert-manager** for automatic TLS certificate provisioning:
+
+- **Development**: Uses `.local` domains (requires manual certificate or DNS setup)
+- **Production**: Uses Let's Encrypt with HTTP-01 challenge for automatic certificates
+- **Custom domains**: Automatically provisions certificates for any valid domain
+
+**Certificate Features**:
+- Automatic certificate issuance and renewal
+- TLS redirect (HTTP → HTTPS)
+- Support for custom domains via hostname parameter
+
+### Container Registry Support
+
+The deployment script supports multiple container registries:
+
+```bash
+# Local registry (development)
+./k8s/deploy.sh development apply localhost:5000 v1.0.0
+
+# Docker Hub
+./k8s/deploy.sh production apply kringen v1.0.0
+
+# Private registry
+./k8s/deploy.sh production apply registry.company.com v1.0.0
+
+# Google Container Registry
+./k8s/deploy.sh production apply gcr.io/project-id v1.0.0
+```
+
+### Monitoring Deployment Status
+
+```bash
+# Check deployment status
+kubectl get pods -n microservices-demo
+
+# View deployment details
+kubectl describe deployment -n microservices-demo
+
+# Check service endpoints
+kubectl get svc -n microservices-demo
+
+# Monitor logs
+kubectl logs -f deployment/dev-frontend -n microservices-demo
+kubectl logs -f deployment/dev-api-server -n microservices-demo
+kubectl logs -f deployment/dev-job-runner -n microservices-demo
 ```
 
 ### Prerequisites
 - Kubernetes cluster (v1.20+)
 - kubectl configured with cluster access
-- Ingress controller (optional, for external access)
+- **cert-manager** installed (for TLS certificates)
+- **nginx-ingress-controller** installed (for ingress)
+- Container registry access (Docker Hub, private registry, etc.)
+- **kustomize** or `kubectl kustomize` support
 
 ### What Gets Deployed
-- RabbitMQ server with persistent storage
-- API Server with horizontal pod autoscaling
-- Job Runner with configurable replica count
-- Frontend web interface
-- All services configured with secrets and config maps
+- **RabbitMQ server** with persistent storage (NFS-backed PVC)
+- **API Server** with health checks and resource limits
+- **Job Runner** with configurable replica count and scaling
+- **Frontend** web interface with ingress and TLS
+- **ConfigMaps** with environment-specific configuration
+- **Secrets** for RabbitMQ credentials and application config
+- **Services** for internal communication and external access
+- **Ingress** with automatic TLS certificate provisioning
+- **Network policies** for secure pod-to-pod communication (production)
 
 For detailed Kubernetes documentation, see [k8s/README.md](k8s/README.md).
+
+## Continuous Integration & Deployment
+
+This project includes automated CI/CD pipelines via GitHub Actions:
+
+### 🔄 CI Workflow (`.github/workflows/ci.yml`)
+**Triggers**: Push to `main`/`develop`, Pull Requests to `main`
+
+**Features**:
+- ✅ **Comprehensive Testing**: Tests all microservices with RabbitMQ integration
+- 🔍 **Code Quality**: go vet, go fmt, golangci-lint checks
+- 📊 **Coverage Reports**: Uploads coverage to Codecov
+- 🐳 **Docker Build**: Builds and pushes images on main branch
+- 🧪 **Integration Tests**: End-to-end testing with real services
+
+### 🚀 Deploy Workflow (`.github/workflows/deploy.yml`)  
+**Triggers**: Push to `main` (auto-deploy), Manual workflow dispatch
+
+**Features**:
+- 🎯 **Environment Selection**: Deploy to development or production
+- 🏷️ **Version Control**: Deploy specific image tags
+- 🌐 **Custom Hostnames**: Override default hostnames
+- ✅ **Deployment Verification**: Waits for pods to be ready
+- 📊 **Health Checks**: Post-deployment verification
+
+**Manual Deployment**:
+1. Go to **GitHub Actions** → **Deploy** workflow → **"Run workflow"**
+2. Select environment (`development` or `production`)
+3. Specify image tag (default: `latest`)  
+4. Add custom hostname (optional)
+
+### 📊 Status Monitoring
+
+Check workflow status locally:
+```bash
+# Install GitHub CLI (if not installed)
+brew install gh  # macOS
+apt install gh    # Ubuntu
+
+# Check workflow status
+./scripts/check-workflows.sh
+
+# View specific workflow run
+gh run list --workflow=ci.yml
+gh run view [run-id]
+```
 
 ## Troubleshooting
 
