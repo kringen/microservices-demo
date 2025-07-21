@@ -129,13 +129,38 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for change detection
+
+    - name: Check for changes
+      id: changes
+      uses: dorny/paths-filter@v2
+      with:
+        filters: |
+          api-server:
+            - 'api-server/**'
+            - 'shared/**'
+            - 'go.mod'
+            - 'go.sum'
+          frontend:
+            - 'frontend/**'
+            - 'shared/**'
+            - 'go.mod'
+            - 'go.sum'
+          job-runner:
+            - 'job-runner/**'
+            - 'shared/**'
+            - 'go.mod'
+            - 'go.sum'
 
     - name: Set up Go
+      if: steps.changes.outputs[matrix.service] == 'true'
       uses: actions/setup-go@v4
       with:
         go-version: ${{ env.GO_VERSION }}
 
     - name: Cache Go modules
+      if: steps.changes.outputs[matrix.service] == 'true'
       uses: actions/cache@v4
       with:
         path: |
@@ -146,15 +171,21 @@ jobs:
           ${{ runner.os }}-go-
 
     - name: Build ${{ matrix.service }}
+      if: steps.changes.outputs[matrix.service] == 'true'
       run: |
         cd ${{ matrix.service }}
         go build -v -o bin/${{ matrix.service }} .
 
     - name: Upload build artifacts
+      if: steps.changes.outputs[matrix.service] == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.service }}-binary
         path: ${{ matrix.service }}/bin/${{ matrix.service }}
+
+    - name: Skip build notification
+      if: steps.changes.outputs[matrix.service] != 'true'
+      run: echo "⏭️ Skipping build for ${{ matrix.service }} - no relevant changes detected"
 
   docker-build:
     name: Docker Build
@@ -169,17 +200,43 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for change detection
+
+    - name: Check for changes
+      id: changes
+      uses: dorny/paths-filter@v2
+      with:
+        filters: |
+          api-server:
+            - 'api-server/**'
+            - 'shared/**'
+            - 'go.mod'
+            - 'go.sum'
+          frontend:
+            - 'frontend/**'
+            - 'shared/**'
+            - 'go.mod'
+            - 'go.sum'
+          job-runner:
+            - 'job-runner/**'
+            - 'shared/**'
+            - 'go.mod'
+            - 'go.sum'
 
     - name: Set up Docker Buildx
+      if: steps.changes.outputs[matrix.service] == 'true'
       uses: docker/setup-buildx-action@v3
 
     - name: Log in to Docker Hub
+      if: steps.changes.outputs[matrix.service] == 'true'
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Extract metadata
+      if: steps.changes.outputs[matrix.service] == 'true'
       id: meta
       uses: docker/metadata-action@v5
       with:
@@ -191,6 +248,7 @@ jobs:
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
+      if: steps.changes.outputs[matrix.service] == 'true'
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -200,6 +258,10 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    - name: Skip build notification
+      if: steps.changes.outputs[matrix.service] != 'true'
+      run: echo "⏭️ Skipping Docker build for ${{ matrix.service }} - no relevant changes detected"
 
   integration-test:
     name: Integration Tests

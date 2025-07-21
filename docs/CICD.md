@@ -383,3 +383,4 @@ git push origin fix/ci-pipeline
 - [Kubernetes kubectl Reference](https://kubernetes.io/docs/reference/kubectl/)
 - [Go Testing Package](https://pkg.go.dev/testing)
 - [golangci-lint Configuration](https://golangci-lint.run/usage/configuration/)
+- **[CI/CD Best Practices](CICD-BEST-PRACTICES.md)** - Optimization strategies and build efficiency
