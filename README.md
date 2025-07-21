@@ -6,6 +6,25 @@
 
 A demonstration of Go microservices architecture using RabbitMQ for message queuing.
 
+## 📋 Documentation
+
+**Comprehensive documentation is available in the [`docs/`](docs/) directory:**
+
+| Document | Description |
+|----------|-------------|
+| **[API Reference](docs/API.md)** | Complete REST API documentation with examples |
+| **[Architecture Guide](docs/ARCHITECTURE.md)** | System design, patterns, and technical decisions |
+| **[Development Guide](docs/DEVELOPMENT.md)** | Local development setup and workflows |
+| **[Deployment Guide](docs/DEPLOYMENT.md)** | Production deployment strategies |
+| **[CI/CD Documentation](docs/CICD.md)** | Pipeline automation and GitHub Actions |
+| **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** | Issue diagnosis and resolution |
+
+**Quick Links:**
+- 🚀 **New Developer?** Start with [Development Guide](docs/DEVELOPMENT.md)
+- 🔌 **API Integration?** See [API Reference](docs/API.md)
+- 🚢 **Deploying?** Check [Deployment Guide](docs/DEPLOYMENT.md)
+- 🐛 **Issues?** Use [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
+
 ## Architecture
 
 This application consists of three microservices:
@@ -498,6 +517,188 @@ kubectl logs -f deployment/dev-frontend -n microservices-demo
 kubectl logs -f deployment/dev-api-server -n microservices-demo
 kubectl logs -f deployment/dev-job-runner -n microservices-demo
 ```
+
+## CI/CD Pipeline
+
+This project includes a comprehensive **GitHub Actions CI/CD pipeline** that automatically tests, builds, and deploys the microservices. The pipeline ensures code quality and provides automated Docker image building with seamless Kubernetes deployment.
+
+### 🔄 Pipeline Overview
+
+The CI/CD pipeline consists of two main workflows:
+
+1. **[CI Workflow](.github/workflows/ci.yml)** - Continuous Integration
+2. **[Deploy Workflow](.github/workflows/deploy.yml)** - Continuous Deployment
+
+### 🧪 CI Workflow (`ci.yml`)
+
+**Triggers:**
+- Push to `main` or `develop` branches
+- Pull requests to `main` branch
+
+**Pipeline Stages:**
+
+#### 1. **Test Job** 🧪
+Comprehensive testing with RabbitMQ integration:
+- **Environment**: Ubuntu Latest with Go 1.21+
+- **Services**: RabbitMQ 3.12 with management interface
+- **Quality Checks**:
+  - `go vet` - Static analysis
+  - `gofmt` - Code formatting verification
+  - `golangci-lint` - Advanced linting
+  - **Comprehensive test coverage** across all modules:
+    - Root module integration tests
+    - API Server unit tests
+    - Frontend unit tests  
+    - Job Runner unit tests
+    - Shared package tests
+- **Coverage Reporting**: Uploads to Codecov with detailed reports
+
+#### 2. **Build Job** 🔨
+Parallel binary compilation:
+- **Strategy**: Matrix build for all services (`api-server`, `frontend`, `job-runner`)
+- **Artifacts**: Uploads compiled binaries for each service
+- **Caching**: Go module and build cache optimization
+
+#### 3. **Docker Build Job** 🐳
+Container image creation and registry push:
+- **Trigger**: Only on `main` branch pushes
+- **Strategy**: Matrix build for all services
+- **Features**:
+  - Docker Buildx for multi-platform support
+  - Automatic Docker Hub authentication
+  - **Smart tagging strategy**:
+    - `latest` for main branch
+    - Branch-based tags
+    - SHA-based tags for traceability
+  - **Build caching**: GitHub Actions cache for faster builds
+  - **Registry**: Pushes to Docker Hub (`kringen/microservices-{service}`)
+
+#### 4. **Integration Tests** 🔗
+End-to-end validation:
+- **Real services**: Tests with actual RabbitMQ instance
+- **Cross-service communication**: Validates message queue integration
+- **Environment**: Full microservices environment simulation
+
+### 🚀 Deploy Workflow (`deploy.yml`)
+
+**Triggers:**
+- Automatic: Push to `main` branch
+- Manual: `workflow_dispatch` with custom parameters
+
+**Deployment Features:**
+
+#### **Flexible Deployment Options**
+```yaml
+# Manual deployment with options
+workflow_dispatch:
+  environment: development|production
+  tag: custom-tag-or-latest
+  hostname: custom.domain.com
+```
+
+#### **Environment Support**
+- **Development**: Fast deployment with basic configuration
+- **Production**: Hardened deployment with security contexts and scaling
+
+#### **Kubernetes Integration**
+- **Self-hosted runner**: Assumes kubectl access to your cluster
+- **Smart tagging**: Uses specified tag or defaults to `latest`
+- **Custom hostnames**: Supports custom domain configuration
+
+### 🔧 CI/CD Configuration
+
+#### **Required Secrets**
+Configure these in your GitHub repository settings:
+
+```bash
+# Docker Hub Authentication
+DOCKER_USERNAME=your-dockerhub-username
+DOCKER_PASSWORD=your-dockerhub-password-or-token
+
+# Kubernetes Deployment (if using GitHub-hosted runners)
+KUBECONFIG=base64-encoded-kubeconfig
+```
+
+#### **Workflow Status Badges**
+Track pipeline status with badges (already included in README header):
+- [![CI](https://github.com/kringen/homelab/actions/workflows/ci.yml/badge.svg)](https://github.com/kringen/homelab/actions/workflows/ci.yml)
+- [![Deploy](https://github.com/kringen/homelab/actions/workflows/deploy.yml/badge.svg)](https://github.com/kringen/homelab/actions/workflows/deploy.yml)
+
+📋 **For detailed CI/CD documentation, troubleshooting, and advanced configuration, see [docs/CICD.md](docs/CICD.md)**
+
+### 🛠️ Local CI/CD Simulation
+
+#### **Pre-commit Validation**
+Run the same checks as CI locally:
+```bash
+./scripts/pre-commit.sh
+```
+This script mirrors the CI quality checks:
+- Code formatting (`gofmt`)
+- Static analysis (`go vet`)
+- Linting (`golangci-lint`)
+- Comprehensive testing
+- **Smart RabbitMQ handling** (starts if needed)
+
+#### **Manual Docker Build**
+Test Docker operations locally:
+```bash
+# Build all images
+make docker-build
+
+# Push to registry (requires Docker login)
+docker push kringen/microservices-api-server:latest
+docker push kringen/microservices-frontend:latest
+docker push kringen/microservices-job-runner:latest
+```
+
+#### **Local Kubernetes Testing**
+```bash
+# Deploy to local cluster
+./k8s/deploy.sh development apply localhost:5000 local-test
+```
+
+### 📊 Pipeline Benefits
+
+#### **Quality Assurance**
+- ✅ **Automated testing**: Comprehensive test coverage with real dependencies
+- ✅ **Code quality**: Multiple linting and formatting checks
+- ✅ **Integration validation**: End-to-end testing with message queues
+
+#### **DevOps Efficiency**
+- ✅ **Fast feedback**: Parallel job execution for quick results
+- ✅ **Artifact management**: Automatic binary and image creation
+- ✅ **Environment parity**: Same deployment process for dev/prod
+
+#### **Production Readiness**
+- ✅ **Container registry**: Automatic image pushing to Docker Hub
+- ✅ **Kubernetes deployment**: Seamless cluster deployment
+- ✅ **Version management**: Smart tagging with SHA and branch tracking
+
+### 🐛 Troubleshooting CI/CD
+
+#### **Common Issues**
+
+1. **Docker authentication failures**:
+   - Verify `DOCKER_USERNAME` and `DOCKER_PASSWORD` secrets
+   - Ensure Docker Hub token has push permissions
+
+2. **Test failures with RabbitMQ**:
+   - CI automatically handles RabbitMQ service startup
+   - Local tests: ensure RabbitMQ is running (`make rabbitmq-up`)
+
+3. **Kubernetes deployment failures**:
+   - Verify self-hosted runner has `kubectl` access
+   - Check cluster connectivity and permissions
+
+4. **Build cache issues**:
+   - GitHub Actions cache is automatic
+   - Local: use `make clean` to reset build state
+
+#### **Monitoring Pipeline Health**
+- **GitHub Actions tab**: View real-time pipeline execution
+- **Codecov dashboard**: Monitor test coverage trends
+- **Docker Hub**: Verify image push success and tags
 
 ### Prerequisites
 - Kubernetes cluster (v1.20+)
