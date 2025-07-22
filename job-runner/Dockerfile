@@ -19,8 +19,8 @@ RUN cd job-runner && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o 
 # Final stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS calls
-RUN apk --no-cache add ca-certificates tzdata
+# Install ca-certificates for HTTPS calls, curl for health checks
+RUN apk --no-cache add ca-certificates tzdata curl
 
 # Create a non-root user
 RUN addgroup -g 1000 appgroup && \
@@ -38,8 +38,15 @@ USER appuser
 # Set working directory
 WORKDIR /home/appuser
 
-# Set environment variables
+# Set environment variables for AI Research Agent
 ENV RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+ENV OLLAMA_URL=http://ollama:11434
+ENV OLLAMA_MODEL=llama3.2
+ENV DAPR_HTTP_ENDPOINT=http://localhost:3500
 
-# Run the binary
+# Health check to verify Ollama connectivity
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f $OLLAMA_URL/api/tags || exit 1
+
+# Run the AI research agent
 CMD ["/usr/local/bin/main"]

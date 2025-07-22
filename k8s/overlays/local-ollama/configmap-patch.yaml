@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: microservices-demo
+data:
+  # Local Ollama Configuration
+  OLLAMA_URL: "http://ollama-service:11434"
+  
+  # Local AI processing settings
+  MCP_TIMEOUT: "120s"
+  JOB_TIMEOUT: "300s"
+  MAX_CONCURRENT_JOBS: "5"  # Conservative for local AI workloads
