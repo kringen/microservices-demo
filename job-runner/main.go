@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -14,15 +17,102 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type JobRunner struct {
-	rabbitmq *shared.RabbitMQClient
+// OllamaClient represents connection to local Ollama server
+type OllamaClient struct {
+	baseURL string
+	client  *http.Client
 }
 
-func NewJobRunner() *JobRunner {
-	return &JobRunner{}
+// OllamaRequest represents a request to Ollama API
+type OllamaRequest struct {
+	Model    string `json:"model"`
+	Prompt   string `json:"prompt"`
+	Stream   bool   `json:"stream"`
+	System   string `json:"system,omitempty"`
+	Template string `json:"template,omitempty"`
 }
 
-func (jr *JobRunner) initRabbitMQ() error {
+// OllamaResponse represents response from Ollama API
+type OllamaResponse struct {
+	Response string `json:"response"`
+	Done     bool   `json:"done"`
+	Context  []int  `json:"context,omitempty"`
+}
+
+// MCPServiceHandler handles different MCP service integrations
+type MCPServiceHandler struct {
+	// In a real implementation, these would be actual MCP client connections
+	availableServices map[shared.MCPService]bool
+}
+
+// ResearchAgent is the AI-powered research agent
+type ResearchAgent struct {
+	rabbitmq    *shared.RabbitMQClient
+	ollama      *OllamaClient
+	mcpHandler  *MCPServiceHandler
+	daprURL     string
+}
+
+func NewResearchAgent() *ResearchAgent {
+	return &ResearchAgent{
+		daprURL: getEnvOrDefault("DAPR_HTTP_ENDPOINT", "http://localhost:3500"),
+	}
+}
+
+func (ra *ResearchAgent) initOllama() error {
+	ollamaURL := getEnvOrDefault("OLLAMA_URL", "http://localhost:11434")
+	
+	ra.ollama = &OllamaClient{
+		baseURL: ollamaURL,
+		client:  &http.Client{Timeout: 5 * time.Minute},
+	}
+
+	// Test connection to Ollama
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := ra.testOllamaConnection(ctx); err != nil {
+		return fmt.Errorf("failed to connect to Ollama: %w", err)
+	}
+
+	log.Println("Connected to Ollama server successfully")
+	return nil
+}
+
+func (ra *ResearchAgent) testOllamaConnection(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", ra.ollama.baseURL+"/api/tags", nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := ra.ollama.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("ollama server returned status: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (ra *ResearchAgent) initMCPServices() {
+	ra.mcpHandler = &MCPServiceHandler{
+		availableServices: map[shared.MCPService]bool{
+			shared.MCPServiceWeb:      true,  // Web search/scraping
+			shared.MCPServiceGitHub:   true,  // GitHub API
+			shared.MCPServiceDatabase: false, // Database queries (disabled for demo)
+			shared.MCPServiceFiles:    true,  // File system access
+			shared.MCPServiceCalendar: false, // Calendar integration (disabled)
+			shared.MCPServiceSlack:    false, // Slack integration (disabled)
+		},
+	}
+	log.Println("MCP services initialized")
+}
+
+func (ra *ResearchAgent) initRabbitMQ() error {
 	var err error
 
 	// Get RabbitMQ URL from environment variable
@@ -31,20 +121,20 @@ func (jr *JobRunner) initRabbitMQ() error {
 		rabbitmqURL = "amqp://guest:guest@localhost:5672/"
 	}
 
-	jr.rabbitmq, err = shared.NewRabbitMQClient(rabbitmqURL)
+	ra.rabbitmq, err = shared.NewRabbitMQClient(rabbitmqURL)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (jr *JobRunner) start() error {
-	jobs, err := jr.rabbitmq.ConsumeJobs()
+func (ra *ResearchAgent) start() error {
+	jobs, err := ra.rabbitmq.ConsumeJobs()
 	if err != nil {
 		return err
 	}
 
-	log.Println("Job Runner started. Waiting for jobs...")
+	log.Println("Research Agent started. Waiting for research requests...")
 
 	for delivery := range jobs {
 		var jobMessage shared.JobMessage
@@ -56,9 +146,9 @@ func (jr *JobRunner) start() error {
 			continue
 		}
 
-		log.Printf("Received job: %s - %s", jobMessage.JobID, jobMessage.Title)
+		log.Printf("Received research request: %s - %s", jobMessage.JobID, jobMessage.Title)
 
-		// Process the job in a goroutine
+		// Process the research request in a goroutine
 		go func(msg shared.JobMessage, d amqp.Delivery) {
 			// Send processing status update
 			processingUpdate := shared.JobResult{
@@ -67,20 +157,20 @@ func (jr *JobRunner) start() error {
 				CompletedAt: time.Now(), // Use this as "started at" timestamp
 			}
 
-			if err := jr.rabbitmq.PublishResult(processingUpdate); err != nil {
-				log.Printf("Failed to publish processing status for job %s: %v", msg.JobID, err)
+			if err := ra.rabbitmq.PublishResult(processingUpdate); err != nil {
+				log.Printf("Failed to publish processing status for research %s: %v", msg.JobID, err)
 			} else {
-				log.Printf("Job %s marked as processing", msg.JobID)
+				log.Printf("Research %s marked as processing", msg.JobID)
 			}
 
-			// Process the job and get final result
-			result := jr.processJob(msg)
+			// Process the research request and get final result
+			result := ra.processResearchRequest(msg)
 
 			// Publish the final result
-			if err := jr.rabbitmq.PublishResult(result); err != nil {
-				log.Printf("Failed to publish result for job %s: %v", msg.JobID, err)
+			if err := ra.rabbitmq.PublishResult(result); err != nil {
+				log.Printf("Failed to publish result for research %s: %v", msg.JobID, err)
 			} else {
-				log.Printf("Published final result for job %s", msg.JobID)
+				log.Printf("Published final result for research %s", msg.JobID)
 			}
 
 			// Acknowledge the message
@@ -92,155 +182,303 @@ func (jr *JobRunner) start() error {
 
 	return nil
 }
-
-func (jr *JobRunner) processJob(jobMessage shared.JobMessage) shared.JobResult {
-	log.Printf("Starting to process job: %s", jobMessage.JobID)
-
-	// Simulate random processing time (5-60 seconds, max 1 minute)
-	processingTime := time.Duration(rand.Intn(56)+5) * time.Second
-	log.Printf("Job %s will take %v to complete", jobMessage.JobID, processingTime)
-
-	// Process the job with timeout protection
+func (ra *ResearchAgent) processResearchRequest(jobMessage shared.JobMessage) shared.JobResult {
+	log.Printf("Starting research: %s - %s", jobMessage.JobID, jobMessage.Query)
 	startTime := time.Now()
 
-	// Use a timeout context to ensure jobs never exceed 1 minute
-	timeout := time.After(60 * time.Second)
-	done := make(chan bool)
-
-	go func() {
-		time.Sleep(processingTime)
-		done <- true
-	}()
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
 	var result shared.JobResult
+	result.JobID = jobMessage.JobID
+	result.CompletedAt = time.Now()
 
-	select {
-	case <-done:
-		// Job completed within time limit
-		actualDuration := time.Since(startTime)
-
-		// Simulate random success/failure (90% success rate)
-		success := rand.Float32() < 0.9
-
-		result = shared.JobResult{
-			JobID:       jobMessage.JobID,
-			CompletedAt: time.Now(),
-		}
-
-		if success {
-			result.Status = shared.JobStatusCompleted
-			result.Result = jr.generateJobResult(jobMessage, actualDuration)
-			log.Printf("Job %s completed successfully in %v", jobMessage.JobID, actualDuration)
-		} else {
-			result.Status = shared.JobStatusFailed
-			result.Error = fmt.Sprintf("Job '%s' failed during processing: simulated random failure after %v",
-				jobMessage.Title, actualDuration)
-			log.Printf("Job %s failed after %v", jobMessage.JobID, actualDuration)
-		}
-
-	case <-timeout:
-		// Job exceeded 1 minute timeout
-		result = shared.JobResult{
-			JobID:       jobMessage.JobID,
-			Status:      shared.JobStatusFailed,
-			Error:       fmt.Sprintf("Job '%s' timed out after 1 minute", jobMessage.Title),
-			CompletedAt: time.Now(),
-		}
-		log.Printf("Job %s timed out after 1 minute", jobMessage.JobID)
+	// Step 1: Gather information using MCP services
+	mcpData, sources, err := ra.gatherInformationWithMCP(ctx, jobMessage)
+	if err != nil {
+		result.Status = shared.JobStatusFailed
+		result.Error = fmt.Sprintf("Failed to gather information: %v", err)
+		return result
 	}
 
+	// Step 2: Use Ollama to process and analyze the gathered information
+	research, confidence, tokens, err := ra.analyzeWithOllama(ctx, jobMessage, mcpData)
+	if err != nil {
+		result.Status = shared.JobStatusFailed
+		result.Error = fmt.Sprintf("Failed to analyze with AI: %v", err)
+		return result
+	}
+
+	// Step 3: Create comprehensive result
+	duration := time.Since(startTime)
+	result.Status = shared.JobStatusCompleted
+	result.Result = research
+	result.Sources = sources
+	result.Confidence = confidence
+	result.TokensUsed = tokens
+
+	log.Printf("Research %s completed in %v with confidence %.2f", 
+		jobMessage.JobID, duration, confidence)
+	
 	return result
 }
 
-// generateJobResult creates a detailed result message based on job content
-func (jr *JobRunner) generateJobResult(jobMessage shared.JobMessage, duration time.Duration) string {
-	baseResult := fmt.Sprintf("Job '%s' completed successfully after %v", jobMessage.Title, duration)
+func (ra *ResearchAgent) gatherInformationWithMCP(ctx context.Context, jobMessage shared.JobMessage) (string, []string, error) {
+	var allData []string
+	var sources []string
 
-	// Generate specific results based on job description/title
-	var specificResult string
-	description := strings.ToLower(jobMessage.Description)
-	title := strings.ToLower(jobMessage.Title)
+	log.Printf("Gathering information for: %s", jobMessage.Query)
 
-	switch {
-	case contains(description, "calculation") || contains(title, "calculation"):
-		specificResult = jr.simulateCalculation()
-	case contains(description, "data") || contains(title, "data"):
-		specificResult = jr.simulateDataProcessing()
-	case contains(description, "report") || contains(title, "report"):
-		specificResult = jr.simulateReportGeneration()
-	case contains(description, "email") || contains(title, "email"):
-		specificResult = jr.simulateEmailProcessing()
-	case contains(description, "backup") || contains(title, "backup"):
-		specificResult = jr.simulateBackupJob()
-	case contains(description, "analysis") || contains(title, "analysis"):
-		specificResult = jr.simulateAnalysisJob()
+	// Process each requested MCP service
+	for _, service := range jobMessage.MCPServices {
+		if !ra.mcpHandler.availableServices[service] {
+			log.Printf("MCP service %s not available, skipping", service)
+			continue
+		}
+
+		data, serviceSources, err := ra.queryMCPService(ctx, service, jobMessage)
+		if err != nil {
+			log.Printf("Error querying MCP service %s: %v", service, err)
+			continue
+		}
+
+		allData = append(allData, data)
+		sources = append(sources, serviceSources...)
+	}
+
+	if len(allData) == 0 {
+		return "", sources, fmt.Errorf("no data could be gathered from MCP services")
+	}
+
+	return strings.Join(allData, "\n\n"), sources, nil
+}
+
+func (ra *ResearchAgent) queryMCPService(ctx context.Context, service shared.MCPService, jobMessage shared.JobMessage) (string, []string, error) {
+	// Simulate MCP service calls - in a real implementation, these would be actual MCP protocol calls
+	switch service {
+	case shared.MCPServiceWeb:
+		return ra.simulateWebSearch(jobMessage.Query)
+	case shared.MCPServiceGitHub:
+		return ra.simulateGitHubSearch(jobMessage.Query)
+	case shared.MCPServiceFiles:
+		return ra.simulateFileSearch(jobMessage.Query)
 	default:
-		specificResult = jr.simulateGenericWork()
+		return "", nil, fmt.Errorf("unsupported MCP service: %s", service)
+	}
+}
+
+func (ra *ResearchAgent) simulateWebSearch(query string) (string, []string, error) {
+	// In a real implementation, this would use a web search MCP server
+	data := fmt.Sprintf(`Web Search Results for "%s":
+
+1. Comprehensive overview found on multiple authoritative sources
+2. Recent developments and trends identified
+3. Technical specifications and best practices documented
+4. Community discussions and expert opinions gathered
+
+Key findings:
+- Industry standard approaches have evolved significantly
+- Best practices emphasize scalability and maintainability  
+- Recent innovations provide improved performance
+- Community consensus supports modern methodologies`, query)
+
+	sources := []string{
+		"https://example.com/research-1",
+		"https://example.com/research-2", 
+		"https://example.com/research-3",
 	}
 
-	return fmt.Sprintf("%s. %s", baseResult, specificResult)
+	return data, sources, nil
 }
 
-func (jr *JobRunner) simulateCalculation() string {
-	// Simulate some mathematical work
-	result := 0
-	for i := 0; i < 1000000; i++ {
-		result += i
+func (ra *ResearchAgent) simulateGitHubSearch(query string) (string, []string, error) {
+	// In a real implementation, this would use GitHub MCP server
+	data := fmt.Sprintf(`GitHub Repository Analysis for "%s":
+
+Popular repositories found:
+- 5 repositories with 1000+ stars
+- 12 active projects with recent commits
+- 3 enterprise-grade solutions identified
+
+Code patterns analysis:
+- Modern architecture patterns prevalent
+- Comprehensive test coverage common
+- Documentation quality varies but generally good
+- Active community contributions`, query)
+
+	sources := []string{
+		"https://github.com/example/repo1",
+		"https://github.com/example/repo2",
+		"https://github.com/example/repo3",
 	}
-	return fmt.Sprintf("Calculation completed. Result: %d", result)
+
+	return data, sources, nil
 }
 
-func (jr *JobRunner) simulateDataProcessing() string {
-	// Simulate data processing
-	records := rand.Intn(1000) + 100
-	return fmt.Sprintf("Processed %d data records successfully", records)
+func (ra *ResearchAgent) simulateFileSearch(query string) (string, []string, error) {
+	// In a real implementation, this would use file system MCP server
+	data := fmt.Sprintf(`Local File System Search for "%s":
+
+Relevant files found:
+- Configuration files containing related settings
+- Documentation with relevant information
+- Code examples and implementations
+- Historical data and logs
+
+Analysis summary:
+- Current implementations follow established patterns
+- Configuration is well-structured
+- Documentation provides good coverage
+- Historical data shows consistent usage patterns`, query)
+
+	sources := []string{
+		"/local/docs/related-file-1.md",
+		"/local/config/settings.yaml",
+		"/local/examples/implementation.go",
+	}
+
+	return data, sources, nil
 }
 
-func (jr *JobRunner) simulateReportGeneration() string {
-	// Simulate report generation
-	pages := rand.Intn(50) + 10
-	return fmt.Sprintf("Generated report with %d pages", pages)
+func (ra *ResearchAgent) analyzeWithOllama(ctx context.Context, jobMessage shared.JobMessage, mcpData string) (string, float64, int, error) {
+	// Create a comprehensive prompt for the AI
+	systemPrompt := `You are a professional research agent. Your task is to analyze the provided information and create a comprehensive, well-structured research report. 
+
+Guidelines:
+- Provide accurate, fact-based analysis
+- Structure your response with clear sections
+- Include key findings and insights
+- Mention any limitations or areas needing further research
+- Rate your confidence in the findings (0.0 to 1.0)
+- Be concise but thorough`
+
+	userPrompt := fmt.Sprintf(`Research Request: %s
+
+Query: %s
+Research Type: %s
+
+Gathered Information:
+%s
+
+Please provide a comprehensive research report based on this information.`, 
+		jobMessage.Title, jobMessage.Query, jobMessage.ResearchType, mcpData)
+
+	// Make request to Ollama
+	response, tokens, err := ra.callOllama(ctx, systemPrompt, userPrompt)
+	if err != nil {
+		return "", 0.0, 0, err
+	}
+
+	// Calculate confidence based on response quality and data availability
+	confidence := ra.calculateConfidence(response, mcpData, len(jobMessage.MCPServices))
+
+	return response, confidence, tokens, nil
 }
 
-func (jr *JobRunner) simulateGenericWork() string {
-	// Generic work simulation
-	operations := rand.Intn(100) + 20
-	return fmt.Sprintf("Performed %d operations successfully", operations)
+func (ra *ResearchAgent) callOllama(ctx context.Context, systemPrompt, userPrompt string) (string, int, error) {
+	model := getEnvOrDefault("OLLAMA_MODEL", "llama3.2")
+	
+	reqBody := OllamaRequest{
+		Model:  model,
+		Prompt: userPrompt,
+		System: systemPrompt,
+		Stream: false,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", 0, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", ra.ollama.baseURL+"/api/generate", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := ra.ollama.client.Do(req)
+	if err != nil {
+		return "", 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", 0, fmt.Errorf("ollama API error: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var ollamaResp OllamaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
+		return "", 0, err
+	}
+
+	// Estimate token usage (rough approximation)
+	tokens := len(strings.Fields(userPrompt + systemPrompt + ollamaResp.Response))
+
+	return ollamaResp.Response, tokens, nil
 }
 
-func (jr *JobRunner) simulateEmailProcessing() string {
-	emailsSent := rand.Intn(500) + 50
-	bounces := rand.Intn(emailsSent / 20)
-	return fmt.Sprintf("Sent %d emails with %d bounces", emailsSent, bounces)
+func (ra *ResearchAgent) calculateConfidence(response, mcpData string, mcpServiceCount int) float64 {
+	baseConfidence := 0.6
+
+	// Increase confidence based on response length and quality
+	responseWords := len(strings.Fields(response))
+	if responseWords > 100 {
+		baseConfidence += 0.1
+	}
+	if responseWords > 300 {
+		baseConfidence += 0.1
+	}
+
+	// Increase confidence based on amount of gathered data
+	dataWords := len(strings.Fields(mcpData))
+	if dataWords > 200 {
+		baseConfidence += 0.1
+	}
+
+	// Increase confidence based on number of MCP services used
+	baseConfidence += float64(mcpServiceCount) * 0.05
+
+	// Cap at 0.95 to account for inherent uncertainty
+	if baseConfidence > 0.95 {
+		baseConfidence = 0.95
+	}
+
+	return baseConfidence
 }
 
-func (jr *JobRunner) simulateBackupJob() string {
-	sizeMB := rand.Intn(5000) + 100
-	files := rand.Intn(10000) + 1000
-	return fmt.Sprintf("Backed up %d files (%.1f GB)", files, float64(sizeMB)/1024.0)
-}
-
-func (jr *JobRunner) simulateAnalysisJob() string {
-	dataPoints := rand.Intn(1000000) + 10000
-	insights := rand.Intn(50) + 5
-	return fmt.Sprintf("Analyzed %d data points and generated %d insights", dataPoints, insights)
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[:len(substr)] == substr
+// Utility function to get environment variable with default
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
 
 func main() {
-	runner := NewJobRunner()
+	agent := NewResearchAgent()
 
-	if err := runner.initRabbitMQ(); err != nil {
+	// Initialize components
+	if err := agent.initRabbitMQ(); err != nil {
 		log.Fatalf("Failed to initialize RabbitMQ: %v", err)
 	}
-	defer runner.rabbitmq.Close()
+	defer agent.rabbitmq.Close()
 
-	log.Println("Job Runner is starting...")
+	if err := agent.initOllama(); err != nil {
+		log.Fatalf("Failed to initialize Ollama: %v", err)
+	}
 
-	if err := runner.start(); err != nil {
-		log.Fatalf("Failed to start job runner: %v", err)
+	agent.initMCPServices()
+
+	log.Println("AI Research Agent is starting...")
+	log.Println("Components initialized:")
+	log.Println("  ✓ RabbitMQ connection")
+	log.Println("  ✓ Ollama AI model")
+	log.Println("  ✓ MCP services")
+	log.Printf("  ✓ Dapr endpoint: %s", agent.daprURL)
+
+	if err := agent.start(); err != nil {
+		log.Fatalf("Failed to start research agent: %v", err)
 	}
 }

@@ -7,9 +7,11 @@ import (
 
 func TestJobMessageSerialization(t *testing.T) {
 	job := JobMessage{
-		JobID:       "test-123",
-		Title:       "Test Job",
-		Description: "A test job description",
+		JobID:        "test-123",
+		Title:        "Test Research",
+		Query:        "Research about AI and machine learning",
+		ResearchType: ResearchTypeGeneral,
+		MCPServices:  []MCPService{MCPServiceWeb, MCPServiceGitHub},
 	}
 
 	// Test marshaling
@@ -31,8 +33,11 @@ func TestJobMessageSerialization(t *testing.T) {
 	if unmarshaled.Title != job.Title {
 		t.Errorf("Expected Title %s, got %s", job.Title, unmarshaled.Title)
 	}
-	if unmarshaled.Description != job.Description {
-		t.Errorf("Expected Description %s, got %s", job.Description, unmarshaled.Description)
+	if unmarshaled.Query != job.Query {
+		t.Errorf("Expected Query %s, got %s", job.Query, unmarshaled.Query)
+	}
+	if unmarshaled.ResearchType != job.ResearchType {
+		t.Errorf("Expected ResearchType %s, got %s", job.ResearchType, unmarshaled.ResearchType)
 	}
 }
 

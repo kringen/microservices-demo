@@ -27,9 +27,11 @@ func TestRabbitMQClientCreation(t *testing.T) {
 func TestJobMessageAndResultSerialization(t *testing.T) {
 	// Test JobMessage
 	jobMsg := JobMessage{
-		JobID:       "test-job-123",
-		Title:       "Test Job",
-		Description: "This is a test job",
+		JobID:        "test-job-123",
+		Title:        "Test Research",
+		Query:        "Research about Go microservices",
+		ResearchType: ResearchTypeTechnical,
+		MCPServices:  []MCPService{MCPServiceWeb},
 	}
 
 	// Create a mock RabbitMQ client (without actual connection)
@@ -113,9 +115,11 @@ func TestMockRabbitMQClient(t *testing.T) {
 
 	// Test job publishing
 	job := JobMessage{
-		JobID:       "test-123",
-		Title:       "Test Job",
-		Description: "Test description",
+		JobID:        "test-123",
+		Title:        "Test Research",
+		Query:        "Test research query",
+		ResearchType: ResearchTypeGeneral,
+		MCPServices:  []MCPService{MCPServiceWeb},
 	}
 
 	err := mock.PublishJob(job)

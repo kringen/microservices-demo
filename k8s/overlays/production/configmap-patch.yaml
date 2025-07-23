@@ -13,8 +13,12 @@ data:
   FRONTEND_URL: "http://microservices-demo.local"
   
   # Production job settings
-  MAX_CONCURRENT_JOBS: "20"
-  JOB_TIMEOUT: "60s"
+  MAX_CONCURRENT_JOBS: "10"  # Adjusted for AI workloads
+  JOB_TIMEOUT: "600s"  # Increased for AI processing
+  
+  # Production AI settings
+  OLLAMA_URL: "http://ollama-service:11434"
+  MCP_TIMEOUT: "180s"  # Production timeout
   
   # Health check settings
   HEALTH_CHECK_INTERVAL: "30s"

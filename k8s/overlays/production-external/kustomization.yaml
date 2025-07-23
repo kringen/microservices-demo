@@ -2,22 +2,21 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 metadata:
-  name: microservices-demo-production
+  name: microservices-demo-production-external
 
 resources:
-  - ../local-ollama
+  - ../external-ollama
 
 labels:
   - includeSelectors: true
     pairs:
       environment: production
-      deployment-type: local-ollama
+      deployment-type: external-ollama
 
 patchesStrategicMerge:
   - deployment-patches.yaml
   - configmap-patch.yaml
   - secrets-patch.yaml
-  - ingress-patch.yaml
 
 images:
   - name: microservices-api-server
@@ -29,16 +28,11 @@ images:
   - name: microservices-frontend
     newName: registry.company.com/microservices-frontend
     newTag: v1.0.0
-  - name: ollama/ollama
-    newName: ollama/ollama
-    newTag: latest
 
 replicas:
   - name: api-server
     count: 3
-  - name: research-agent  # Updated from job-runner
-    count: 2  # Reduced for AI workloads
+  - name: research-agent
+    count: 5  # Can scale higher with external AI
   - name: frontend
     count: 3
-  - name: ollama
-    count: 1  # Single instance for Ollama

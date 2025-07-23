@@ -1,69 +1,85 @@
-# Job Runner
+# AI Research Agent
 
-The Job Runner is a worker service that consumes jobs from RabbitMQ, processes them asynchronously, and reports completion status back through the message queue.
+The AI Research Agent is an intelligent worker service that consumes research requests from RabbitMQ, uses AI and external data sources to conduct comprehensive research, and reports detailed findings back through the message queue.
 
-## 🎯 Purpose
+## 🤖 Purpose
 
-- **Job Processing**: Execute jobs asynchronously with 5-60 second durations
-- **Status Reporting**: Send real-time updates (pending → processing → completed/failed)
-- **Timeout Protection**: Ensure no job exceeds 1-minute maximum
-- **Load Balancing**: Support multiple instances for high throughput
+- **AI-Powered Research**: Conduct intelligent research using Ollama LLM models
+- **Multi-Source Data Gathering**: Integrate web search, GitHub, and file system data via MCP services
+- **Comprehensive Analysis**: Generate detailed research reports with confidence scoring
+- **Real-time Updates**: Send status updates throughout the research process
+- **Scalable Processing**: Support multiple research agents for high throughput
 
 ## 🏗️ Architecture
 
 ```
-RabbitMQ Jobs Queue → Job Runner → Job Processing → RabbitMQ Results Queue
-                         ↓
-                   Status Updates
-                    (processing,
-                     completed,
-                     failed)
+RabbitMQ Research Queue → AI Research Agent → Ollama AI Analysis → RabbitMQ Results Queue
+                             ↓                    ↑
+                       MCP Data Services    AI Processing
+                       (Web, GitHub, Files)  (llama3.2)
+                             ↓                    ↓
+                       Information Gathering → Confidence Scoring
+                                              → Source Citations
+                                              → Token Usage Tracking
 ```
 
 ## ⚡ Features
 
-### Job Processing
-- **Realistic Simulation**: Different job types with varied processing logic
-- **Random Duration**: 5-60 seconds to simulate real work
-- **Timeout Protection**: Hard 1-minute limit on all jobs
-- **Error Simulation**: 10% failure rate for testing error handling
+### AI-Powered Analysis
+- **Ollama Integration**: Uses llama3.2 model for intelligent text analysis
+- **Multi-Step Research**: Combines data gathering with AI reasoning
+- **Contextual Understanding**: Processes queries with research type awareness
+- **Quality Assessment**: Automatic confidence scoring for all research results
 
-### Job Types Supported
-- **Data Analysis**: Customer data processing, insights generation
-- **Report Generation**: Document creation with page counts
-- **Email Campaigns**: Bulk email sending with bounce tracking
-- **Backup Operations**: File and database backup simulation
-- **Generic Processing**: Flexible operation simulation
+### Data Source Integration (MCP Services)
+- **Web Search**: Simulated web search and content extraction
+- **GitHub Analysis**: Repository search and code pattern analysis  
+- **File System Access**: Local document and configuration analysis
+- **Extensible Framework**: Ready for additional MCP service integrations
 
-### Scaling
-- **Multiple Instances**: Run multiple job runners for load balancing
-- **Queue-based Distribution**: RabbitMQ handles job distribution
-- **Concurrent Processing**: Each instance processes jobs independently
+### Research Types Supported
+- **General Research**: Broad information gathering and analysis
+- **Technical Analysis**: Deep-dive technical investigations
+- **Market Research**: Business and market intelligence
+- **Competitive Analysis**: Competitor and industry analysis
+- **Code & Development**: Software development insights
+- **Data Analysis**: Statistical and data-driven research
+
+### Advanced Processing
+- **Token Usage Tracking**: Monitor AI model resource consumption
+- **Source Citation**: Track and reference all information sources
+- **Confidence Scoring**: Rate reliability of research findings (0.0-1.0)
+- **Error Handling**: Graceful degradation when services are unavailable
 
 ## 🚀 Quick Start
 
 ### Local Development
 ```bash
-# Run single instance
+# Run AI research agent
 make run
 
-# Run with custom environment
-RABBITMQ_URL=amqp://user:pass@localhost:5672/ make run-env
+# Run with custom Ollama server
+OLLAMA_URL=http://custom-ollama:11434 make run
 
-# Run multiple instances for load testing
-make run-multiple
+# Run with different AI model
+OLLAMA_MODEL=llama3.1 make run
 
 # Run with hot reload
 make dev
 ```
 
-### Docker
+### Docker (Recommended)
 ```bash
-# Build and run standalone
-make docker-run
+# Run full AI stack with docker-compose
+make docker-up
 
-# Run with Docker network (for full stack)
-make docker-run-network
+# Check research agent logs
+docker logs microservices-research-agent
+
+# Test research endpoint
+curl -X POST http://localhost:8081/api/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"title":"AI Research Test","query":"What are the latest developments in AI?","research_type":"technical","mcp_services":["web"]}'
 ```
 
 ### Testing
@@ -71,8 +87,11 @@ make docker-run-network
 # Run tests
 make test
 
-# Test job processing logic
-go test -v . -run TestJobProcessing
+# Test AI integration
+go test -v . -run TestOllamaIntegration
+
+# Test MCP services
+go test -v . -run TestMCPServices
 ```
 
 ## ⚙️ Configuration
@@ -82,96 +101,169 @@ go test -v . -run TestJobProcessing
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `RABBITMQ_URL` | `amqp://guest:guest@localhost:5672/` | RabbitMQ connection URL |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama AI server endpoint |
+| `OLLAMA_MODEL` | `llama3.2` | AI model to use for research |
+| `DAPR_HTTP_ENDPOINT` | `http://localhost:3500` | Dapr service mesh endpoint |
 
 ### Example Configuration
 ```bash
 export RABBITMQ_URL="amqp://user:password@rabbitmq-host:5672/"
+export OLLAMA_URL="http://ollama-server:11434"
+export OLLAMA_MODEL="llama3.2"
+export DAPR_HTTP_ENDPOINT="http://dapr-sidecar:3500"
 ```
 
-## 🔄 Job Processing Flow
+### AI Model Requirements
+- **Model Size**: llama3.2 requires ~2GB storage
+- **Memory**: Minimum 4GB RAM recommended for processing
+- **Network**: Internet access for initial model download
 
-### 1. Job Consumption
+## 🔄 AI Research Processing Flow
+
+### 1. Research Request Consumption
 ```go
-// Consume job from queue
-jobMessage := consumeFromQueue()
+// Consume research request from queue
+researchMessage := consumeFromQueue()
+log.Printf("Received research request: %s - %s", researchMessage.JobID, researchMessage.Title)
 ```
 
 ### 2. Status Update - Processing
 ```go
 // Send "processing" status
 publishResult(JobResult{
-    JobID: jobMessage.JobID,
+    JobID: researchMessage.JobID,
     Status: "processing",
     CompletedAt: time.Now()
 })
 ```
 
-### 3. Job Execution
+### 3. Data Gathering Phase
 ```go
-// Process job with timeout protection
-result := processJobWithTimeout(jobMessage)
+// Gather information using MCP services
+mcpData, sources, err := gatherInformationWithMCP(ctx, researchMessage)
+// Web search, GitHub analysis, file system access
 ```
 
-### 4. Status Update - Completion
+### 4. AI Analysis Phase
 ```go
-// Send final result
+// Process with Ollama AI
+response, confidence, tokens, err := analyzeWithOllama(ctx, researchMessage, mcpData)
+// Generate comprehensive research report using llama3.2
+```
+
+### 5. Status Update - Completion
+```go
+// Send final research results
 publishResult(JobResult{
-    JobID: jobMessage.JobID,
-    Status: "completed", // or "failed"
-    Result: "Job completed successfully...",
+    JobID: researchMessage.JobID,
+    Status: "completed",
+    Result: response,
+    Sources: sources,
+    Confidence: confidence,
+    TokensUsed: tokens,
     CompletedAt: time.Now()
 })
 ```
 
-## 🎲 Job Simulation Details
+## 🤖 AI & MCP Integration Details
 
-### Data Analysis Jobs
+### Ollama AI Integration
 ```go
-func simulateAnalysisJob() string {
-    dataPoints := rand.Intn(1000000) + 10000
-    insights := rand.Intn(50) + 5
-    return fmt.Sprintf("Analyzed %d data points and generated %d insights", 
-        dataPoints, insights)
+// AI analysis with comprehensive prompting
+type OllamaRequest struct {
+    Model    string `json:"model"`    // llama3.2
+    Prompt   string `json:"prompt"`   // Research query + context
+    System   string `json:"system"`   // Research agent instructions
+    Stream   bool   `json:"stream"`   // false for complete responses
+}
+
+// Generate research report
+response, tokens, err := callOllama(ctx, systemPrompt, researchPrompt)
+```
+
+### MCP Service Simulations
+```go
+// Web search simulation
+func simulateWebSearch(query string) (string, []string, error) {
+    data := fmt.Sprintf(`Web Search Results for "%s":
+    1. Comprehensive overview found on multiple authoritative sources
+    2. Recent developments and trends identified
+    3. Technical specifications and best practices documented`, query)
+    
+    sources := []string{
+        "https://example.com/research-1",
+        "https://example.com/research-2",
+    }
+    return data, sources, nil
+}
+
+// GitHub analysis simulation
+func simulateGitHubSearch(query string) (string, []string, error) {
+    data := fmt.Sprintf(`GitHub Repository Analysis for "%s":
+    - 5 repositories with 1000+ stars
+    - Modern architecture patterns prevalent
+    - Active community contributions`, query)
+    
+    sources := []string{
+        "https://github.com/example/repo1",
+        "https://github.com/example/repo2",
+    }
+    return data, sources, nil
 }
 ```
 
-### Email Campaign Jobs
+### Confidence Scoring Algorithm
 ```go
-func simulateEmailProcessing() string {
-    emailsSent := rand.Intn(500) + 50
-    bounces := rand.Intn(emailsSent / 20)
-    return fmt.Sprintf("Sent %d emails with %d bounces", emailsSent, bounces)
-}
-```
-
-### Backup Jobs
-```go
-func simulateBackupJob() string {
-    sizeMB := rand.Intn(5000) + 100
-    files := rand.Intn(10000) + 1000
-    return fmt.Sprintf("Backed up %d files (%.1f GB)", files, float64(sizeMB)/1024.0)
+func calculateConfidence(response, mcpData string, mcpServiceCount int) float64 {
+    baseConfidence := 0.6
+    
+    // Increase confidence based on response quality
+    responseWords := len(strings.Fields(response))
+    if responseWords > 100 { baseConfidence += 0.1 }
+    if responseWords > 300 { baseConfidence += 0.1 }
+    
+    // Increase confidence based on data sources
+    dataWords := len(strings.Fields(mcpData))
+    if dataWords > 200 { baseConfidence += 0.1 }
+    
+    // Factor in number of MCP services used
+    baseConfidence += float64(mcpServiceCount) * 0.05
+    
+    // Cap at 0.95 to account for inherent uncertainty
+    if baseConfidence > 0.95 { baseConfidence = 0.95 }
+    
+    return baseConfidence
 }
 ```
 
 ## 📊 Performance Characteristics
 
-### Processing Times
-- **Minimum**: 5 seconds
-- **Maximum**: 60 seconds  
-- **Timeout**: Hard limit at 60 seconds
-- **Distribution**: Random uniform distribution
+### AI Processing Times
+- **Data Gathering**: 1-5 seconds per MCP service
+- **AI Analysis**: 10-60 seconds depending on query complexity
+- **Total Processing**: Typically 15-120 seconds per research request
+- **Timeout Protection**: 5-minute hard limit with context cancellation
 
-### Success Rates
-- **Success**: 90% of jobs complete successfully
-- **Failure**: 10% fail with simulated errors
-- **Timeout**: Rare, only if processing logic hangs
+### Quality Metrics
+- **Confidence Scoring**: 0.6-0.95 range based on data quality and sources
+- **Token Usage**: Tracked for cost management and optimization
+- **Source Attribution**: All information sources properly cited
+- **Error Handling**: Graceful degradation when services unavailable
+
+### Resource Requirements
+- **Memory**: 2-4GB for Ollama model loading
+- **CPU**: Moderate during AI inference
+- **Network**: Required for MCP service calls and model downloads
+- **Storage**: 2GB+ for AI model persistence
 
 ## 🔧 Development
 
 ### Prerequisites
 - Go 1.21+
 - RabbitMQ server
+- **Ollama server with llama3.2 model**
 - Access to shared module
+- Docker and Docker Compose (for full stack)
 
 ### Building
 ```bash
@@ -180,6 +272,22 @@ make build
 
 # Clean artifacts
 make clean
+
+# Build Docker image
+make docker-build
+```
+
+### Local Development Setup
+```bash
+# Start dependencies (RabbitMQ + Ollama)
+make docker-up
+
+# Or start individual components
+docker run -d --name ollama -p 11434:11434 ollama/ollama:latest
+docker exec ollama ollama pull llama3.2
+
+# Run research agent locally
+make run
 ```
 
 ### Code Quality
@@ -189,6 +297,9 @@ make fmt
 
 # Run linter
 make lint
+
+# Security scan
+make security-check
 ```
 
 ## 🧪 Testing
@@ -198,108 +309,227 @@ make lint
 # Run all tests
 make test
 
-# Test specific functions
-go test -run TestJobProcessing
-go test -run TestJobSimulation
+# Test AI integration
+go test -run TestOllamaConnection
+go test -run TestResearchProcessing
+
+# Test MCP services
+go test -run TestMCPServices
+go test -run TestConfidenceScoring
 ```
 
-### Load Testing
+### Integration Testing
 ```bash
-# Run multiple job runners
-make run-multiple
+# Test with real Ollama server
+INTEGRATION_TEST=true go test -v ./...
 
-# Submit multiple jobs via API server
-# Each runner will process jobs concurrently
+# Test research pipeline end-to-end
+curl -X POST http://localhost:8081/api/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Integration Test","query":"Test AI research capabilities","research_type":"technical","mcp_services":["web","github"]}'
 ```
 
-### Timeout Testing
+### Performance Testing
 ```bash
-# Test timeout protection
-go test -run TestJobTimeout -timeout 70s
+# Load test with multiple research requests
+make load-test
+
+# Monitor AI response times
+go test -bench=BenchmarkAIAnalysis -benchmem
+
+# Test with different model configurations
+OLLAMA_MODEL=llama3.1 go test -run TestModelPerformance
 ```
 
-## 🐳 Docker
+## 🐳 Docker & Deployment
 
 ### Dockerfile Features
 - **Multi-stage build** for optimized images
-- **Alpine base** for minimal size
+- **Alpine base** with curl for health checks
 - **Non-root execution** for security
-- **Resource limits** for container orchestration
+- **AI model volume mounting** for persistence
 
-### Scaling with Docker
+### Docker Compose Integration
 ```yaml
-# docker-compose.yml example
-job-runner:
-  deploy:
-    replicas: 3  # Run 3 instances
+# Full AI research stack
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+  
+  research-agent:
+    build: ./job-runner
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2
+    depends_on:
+      - ollama
+      - rabbitmq
+```
+
+### Scaling with Kubernetes
+```yaml
+# research-agent-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: research-agent
+spec:
+  replicas: 3  # Multiple AI research agents
+  template:
+    spec:
+      containers:
+      - name: research-agent
+        image: microservices-research-agent:latest
+        env:
+        - name: OLLAMA_URL
+          value: "http://ollama-service:11434"
 ```
 
 ## 📈 Scaling & Performance
 
 ### Horizontal Scaling
 ```bash
-# Run multiple instances
-docker-compose up --scale job-runner=5
+# Scale research agents with Docker Compose
+docker-compose up --scale research-agent=5
+
+# Monitor AI processing load
+docker stats microservices-research-agent
 ```
 
-### Performance Monitoring
-- Track job processing times
-- Monitor queue depth
-- Watch memory and CPU usage
-- Alert on failed jobs
+### Performance Optimization
+- **Model Caching**: Keep Ollama model loaded in memory
+- **Connection Pooling**: Reuse HTTP connections to Ollama
+- **Batch Processing**: Group similar research requests
+- **Resource Limits**: Configure appropriate CPU/memory limits
 
-### Optimization Tips
-- **Queue Prefetch**: Limit concurrent jobs per runner
-- **Memory Management**: Clean up after job completion
-- **Connection Pooling**: Reuse RabbitMQ connections
+### Monitoring Key Metrics
+- **Research requests processed per minute**
+- **Average AI analysis time**
+- **Token usage and costs**
+- **Confidence score distributions**
+- **MCP service response times**
+- **Queue depth and processing lag**
+
+### Cost Optimization
+- **Model Selection**: Balance accuracy vs. speed/cost
+- **Token Management**: Monitor and optimize prompt engineering
+- **Resource Scheduling**: Scale agents based on demand
+- **Caching Strategies**: Cache similar research results
 
 ## 🔍 Monitoring & Observability
 
-### Logging
+### Comprehensive Logging
 ```go
-log.Printf("Job %s started processing", jobID)
-log.Printf("Job %s completed in %v", jobID, duration)
-log.Printf("Job %s failed: %v", jobID, error)
+log.Printf("Research %s started processing at %v", jobID, startTime)
+log.Printf("Connected to Ollama server successfully")
+log.Printf("MCP services initialized: %v", availableServices)
+log.Printf("Research %s completed in %v with confidence %.2f", jobID, duration, confidence)
+log.Printf("AI analysis used %d tokens", tokenCount)
 ```
 
-### Metrics to Track
-- Jobs processed per second
-- Average processing time
-- Success/failure rates
-- Queue depth and lag
+### Health Checks
+```bash
+# Check research agent health
+curl http://localhost:8080/health
+
+# Verify Ollama connectivity
+curl http://localhost:11434/api/tags
+
+# Monitor RabbitMQ queue depth
+curl -u guest:guest http://localhost:15672/api/queues
+```
+
+### AI-Specific Metrics
+- **Model performance**: Response time and quality
+- **Token usage patterns**: Cost tracking and optimization
+- **Confidence score trends**: Research quality over time
+- **MCP service availability**: External dependency health
+- **Research type distributions**: Usage patterns analysis
+
+### Alerting Scenarios
+- Ollama server unavailable or slow
+- High token usage indicating cost issues
+- Low confidence scores suggesting quality problems
+- MCP service failures affecting research quality
 
 ## 🛠️ Troubleshooting
 
 ### Common Issues
 
-**No Jobs Being Processed**
+**Research Agent Not Processing Requests**
 ```bash
-# Check RabbitMQ connection
-# Verify queue exists
-# Check API server is publishing jobs
+# Check Ollama server connectivity
+curl http://localhost:11434/api/tags
+
+# Verify RabbitMQ connection
+docker logs microservices-research-agent | grep "RabbitMQ"
+
+# Check if AI model is loaded
+docker exec microservices-ollama ollama list
 ```
 
-**Memory Leaks**
+**AI Analysis Failing**
 ```bash
-# Monitor memory usage
-docker stats microservices-job-runner
-# Check for goroutine leaks
+# Check Ollama server logs
+docker logs microservices-ollama
+
+# Verify model is downloaded
+docker exec microservices-ollama ollama list | grep llama3.2
+
+# Test direct Ollama API
+curl -X POST http://localhost:11434/api/generate \
+  -d '{"model":"llama3.2","prompt":"test","stream":false}'
 ```
 
-**Slow Processing**
+**High Memory Usage**
 ```bash
-# Check system resources
-# Monitor job complexity
-# Verify network connectivity
+# Monitor container resources
+docker stats microservices-ollama microservices-research-agent
+
+# Check for memory leaks in AI processing
+# Ollama models require 2-4GB baseline memory
+```
+
+**Slow Research Processing**
+```bash
+# Check AI model response times
+# Monitor MCP service simulation delays
+# Verify system resources available for AI inference
+# Consider using smaller/faster models for testing
+```
+
+**Model Download Issues**
+```bash
+# Manually pull model if auto-download fails
+docker exec microservices-ollama ollama pull llama3.2
+
+# Check available disk space (models are ~2GB)
+df -h
+
+# Verify internet connectivity for downloads
 ```
 
 ## 🔐 Security
 
-### Best Practices
-- Run as non-root user in containers
-- Validate job input data
-- Implement resource limits
-- Secure RabbitMQ credentials
+### AI Security Best Practices
+- **Input Validation**: Sanitize research queries to prevent prompt injection
+- **Model Access Control**: Restrict access to AI endpoints
+- **Token Limits**: Implement usage quotas to prevent abuse
+- **Content Filtering**: Monitor and filter AI-generated content
+
+### Infrastructure Security
+- **Container Security**: Run as non-root user in containers
+- **Network Policies**: Isolate AI services in secure networks
+- **Secrets Management**: Secure RabbitMQ credentials and API keys
+- **Resource Limits**: Prevent resource exhaustion attacks
+
+### Data Privacy
+- **Research Data**: Ensure sensitive queries are handled appropriately
+- **AI Model Data**: Consider data residency for AI processing
+- **Logging**: Avoid logging sensitive research content
+- **Compliance**: Meet regulatory requirements for AI processing
 
 ## 📚 Related Services
 
@@ -309,14 +539,21 @@ docker stats microservices-job-runner
 
 ## 🎯 Use Cases
 
-### Development
-- Testing asynchronous job processing
-- Demonstrating microservices patterns
-- Learning message queue integration
+### Development & Learning
+- **AI Integration Patterns**: Learn to integrate LLMs into microservices
+- **MCP Protocol**: Understand Model Context Protocol for AI agents
+- **Research Workflows**: Build intelligent information gathering systems
+- **Asynchronous AI**: Handle long-running AI tasks with message queues
 
-### Production Patterns
-- Background task processing
-- Image/video processing
-- Report generation
-- Data analysis pipelines
-- Batch processing systems
+### Production Applications
+- **Intelligent Research Assistants**: Automated information gathering and analysis
+- **Content Generation**: AI-powered report and document creation
+- **Knowledge Management**: Organize and analyze large information datasets
+- **Decision Support**: Provide AI-assisted insights for business decisions
+- **Technical Documentation**: Auto-generate technical summaries and guides
+
+### Advanced Scenarios
+- **Multi-Agent Systems**: Coordinate multiple AI research agents
+- **Specialized Research**: Configure domain-specific AI models
+- **Real-time Intelligence**: Stream processing with AI analysis
+- **Hybrid AI/Human Workflows**: Combine AI research with human review

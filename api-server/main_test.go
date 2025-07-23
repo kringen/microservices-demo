@@ -21,12 +21,14 @@ func TestCreateJob(t *testing.T) {
 	// Don't initialize RabbitMQ for unit tests
 	router := server.setupRoutes()
 
-	jobRequest := shared.JobRequest{
-		Title:       "Test Job",
-		Description: "A test job description",
+	researchRequest := shared.ResearchRequest{
+		Title:        "Test Research",
+		Query:        "Research about AI and machine learning",
+		ResearchType: shared.ResearchTypeGeneral,
+		MCPServices:  []shared.MCPService{shared.MCPServiceWeb},
 	}
 
-	body, _ := json.Marshal(jobRequest)
+	body, _ := json.Marshal(researchRequest)
 	req, _ := http.NewRequest("POST", "/api/jobs", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -45,16 +47,16 @@ func TestCreateJob(t *testing.T) {
 		t.Errorf("Failed to parse response: %v", err)
 	}
 
-	if response.Title != jobRequest.Title {
-		t.Errorf("Expected job title %s, got %s", jobRequest.Title, response.Title)
+	if response.Title != researchRequest.Title {
+		t.Errorf("Expected research title %s, got %s", researchRequest.Title, response.Title)
 	}
 
-	if response.Description != jobRequest.Description {
-		t.Errorf("Expected job description %s, got %s", jobRequest.Description, response.Description)
+	if response.Query != researchRequest.Query {
+		t.Errorf("Expected research query %s, got %s", researchRequest.Query, response.Query)
 	}
 
 	if response.Status != "pending" {
-		t.Errorf("Expected job status 'pending', got %s", response.Status)
+		t.Errorf("Expected research status 'pending', got %s", response.Status)
 	}
 }
 
@@ -64,13 +66,15 @@ func TestGetJob(t *testing.T) {
 	server := NewAPIServer()
 	router := server.setupRoutes()
 
-	// Create a test job
+	// Create a test research job
 	testJob := &shared.Job{
-		ID:          "test-123",
-		Title:       "Test Job",
-		Description: "A test job",
-		Status:      shared.JobStatusPending,
-		CreatedAt:   time.Now(),
+		ID:           "test-123",
+		Title:        "Test Research",
+		Query:        "Research about AI",
+		ResearchType: shared.ResearchTypeGeneral,
+		MCPServices:  []shared.MCPService{shared.MCPServiceWeb},
+		Status:       shared.JobStatusPending,
+		CreatedAt:    time.Now(),
 	}
 
 	server.jobsMutex.Lock()
@@ -117,21 +121,25 @@ func TestListJobs(t *testing.T) {
 	server := NewAPIServer()
 	router := server.setupRoutes()
 
-	// Create test jobs
+	// Create test research jobs
 	testJobs := []*shared.Job{
 		{
-			ID:          "test-1",
-			Title:       "Job 1",
-			Description: "First test job",
-			Status:      shared.JobStatusPending,
-			CreatedAt:   time.Now(),
+			ID:           "test-1",
+			Title:        "Research 1",
+			Query:        "First test research",
+			ResearchType: shared.ResearchTypeGeneral,
+			MCPServices:  []shared.MCPService{shared.MCPServiceWeb},
+			Status:       shared.JobStatusPending,
+			CreatedAt:    time.Now(),
 		},
 		{
-			ID:          "test-2",
-			Title:       "Job 2",
-			Description: "Second test job",
-			Status:      shared.JobStatusCompleted,
-			CreatedAt:   time.Now(),
+			ID:           "test-2",
+			Title:        "Research 2",
+			Query:        "Second test research",
+			ResearchType: shared.ResearchTypeTechnical,
+			MCPServices:  []shared.MCPService{shared.MCPServiceWeb, shared.MCPServiceGitHub},
+			Status:       shared.JobStatusCompleted,
+			CreatedAt:    time.Now(),
 		},
 	}
 
@@ -168,13 +176,15 @@ func TestListJobs(t *testing.T) {
 func TestUpdateJobStatus(t *testing.T) {
 	server := NewAPIServer()
 
-	// Create a test job
+	// Create a test research job
 	testJob := &shared.Job{
-		ID:          "test-123",
-		Title:       "Test Job",
-		Description: "A test job",
-		Status:      shared.JobStatusPending,
-		CreatedAt:   time.Now(),
+		ID:           "test-123",
+		Title:        "Test Research",
+		Query:        "Research about AI",
+		ResearchType: shared.ResearchTypeGeneral,
+		MCPServices:  []shared.MCPService{shared.MCPServiceWeb},
+		Status:       shared.JobStatusPending,
+		CreatedAt:    time.Now(),
 	}
 
 	server.jobsMutex.Lock()

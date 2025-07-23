@@ -51,35 +51,48 @@ k8s/
 - kustomize (optional, kubectl has built-in support)
 - Ingress controller (nginx recommended)
 
-### Deploy Development Environment
+#### Deploy Script
+
+The `deploy.sh` script simplifies deployment across environments with flexible Ollama configurations:
 
 ```bash
-# Deploy to development
-./deploy.sh development apply
+# Show help and available options
+./deploy.sh --help
 
-# Check status
-kubectl get pods -n microservices-demo
+# Deploy development with local Ollama
+./deploy.sh --environment development --action apply --ollama local
 
-# Access services (NodePort)
-# Frontend: http://localhost:31080
-# API Server: http://localhost:31081
-# RabbitMQ Management: http://localhost:31567
+# Deploy production with external Ollama  
+./deploy.sh --environment production --action apply --ollama 192.168.1.100:11434
+
+# Build manifests without applying (dry-run)
+./deploy.sh --environment development --action build --ollama local
+
+# Clean up deployment
+./deploy.sh --environment development --action delete --ollama local
+
+# Using short options
+./deploy.sh -e dev -a apply -o local
+
+# Deploy with custom registry and tag
+./deploy.sh -e prod -a apply -o local -r my-registry.com -t v1.2.3
+
+# Production with external hostname
+./deploy.sh -e prod -a apply -o local -h my-ai-system.example.com
 ```
 
-### Deploy Production Environment
+### Parameters
 
-```bash
-# Deploy to production
-./deploy.sh production apply
+**Required:**
+- `-e, --environment`: `development` (or `dev`) / `production` (or `prod`)
+- `-a, --action`: `apply`, `delete`, `diff`, or `build`
 
-# Check status
-kubectl get pods -n microservices-demo -l environment=production
-
-# Access via Ingress (configure DNS/hosts)
-# Frontend: http://microservices-demo.local
-# API Server: http://api.microservices-demo.local
-# RabbitMQ: http://rabbitmq.microservices-demo.local
-```
+**Optional:**
+- `-o, --ollama`: `local` (default) or `<host:port>` for external Ollama
+- `-r, --registry`: Container registry (default: docker.io)
+- `-t, --tag`: Image tag (default: latest)  
+- `-h, --hostname`: External hostname for production ingress
+- `--help`: Show usage information
 
 ## 🛠️ Deployment Script Usage
 

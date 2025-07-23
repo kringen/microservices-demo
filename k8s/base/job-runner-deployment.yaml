@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: job-runner
+  name: research-agent
   namespace: microservices-demo
   labels:
     app.kubernetes.io/name: microservices-demo
-    app.kubernetes.io/component: job-runner
+    app.kubernetes.io/component: research-agent
     app.kubernetes.io/version: "1.0.0"
 spec:
   replicas: 3  # Multiple replicas for load balancing
@@ -17,18 +17,18 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: microservices-demo
-      app.kubernetes.io/component: job-runner
+      app.kubernetes.io/component: research-agent
   template:
     metadata:
       labels:
         app.kubernetes.io/name: microservices-demo
-        app.kubernetes.io/component: job-runner
+        app.kubernetes.io/component: research-agent
         app.kubernetes.io/version: "1.0.0"
       annotations:
-        prometheus.io/scrape: "false"  # Job runner doesn't expose HTTP metrics
+        prometheus.io/scrape: "false"  # Research agent doesn't expose HTTP metrics
     spec:
       containers:
-        - name: job-runner
+        - name: research-agent
           image: microservices-job-runner:latest
           imagePullPolicy: IfNotPresent
           env:
@@ -69,7 +69,28 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: MAX_CONCURRENT_JOBS
-          # No HTTP probes for job runner, but we can check process health
+            # AI-specific configuration
+            - name: OLLAMA_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: OLLAMA_URL
+            - name: OLLAMA_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: OLLAMA_MODEL
+            - name: MCP_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MCP_TIMEOUT
+            - name: ENABLE_AI_FEATURES
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: ENABLE_AI_FEATURES
+          # No HTTP probes for research agent, but we can check process health
           livenessProbe:
             exec:
               command:
@@ -92,11 +113,11 @@ spec:
             failureThreshold: 3
           resources:
             requests:
-              memory: "128Mi"
-              cpu: "100m"
+              memory: "512Mi"  # Increased for AI workloads
+              cpu: "200m"
             limits:
-              memory: "256Mi"
-              cpu: "500m"
+              memory: "1Gi"    # More memory for AI processing
+              cpu: "1000m"
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true

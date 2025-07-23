@@ -1,10 +1,18 @@
-# Microservices Demo Application
+# AI Research Agent - Microservices Demo
 
 [![CI](https://github.com/kringen/homelab/actions/workflows/ci.yml/badge.svg)](https://github.com/kringen/homelab/actions/workflows/ci.yml)
 [![Deploy](https://github.com/kringen/homelab/actions/workflows/deploy.yml/badge.svg)](https://github.com/kringen/homelab/actions/workflows/deploy.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kringen/homelab)](https://goreportcard.com/report/github.com/kringen/homelab)
 
-A demonstration of Go microservices architecture using RabbitMQ for message queuing.
+An AI-powered research agent built with Go microservices, featuring Dapr service mesh, Ollama LLM integration, and Model Context Protocol (MCP) services for intelligent information gathering and analysis.
+
+## 🤖 AI Features
+
+- **Intelligent Research**: AI-powered research agent using local Ollama LLM
+- **MCP Integration**: Model Context Protocol services for web search, GitHub, and file access
+- **Dapr Service Mesh**: Modern microservices communication and state management
+- **Real-time Results**: Live research progress and confidence scoring
+- **Multi-source Analysis**: Combines data from multiple sources for comprehensive insights
 
 ## 📋 Documentation
 
@@ -27,44 +35,68 @@ A demonstration of Go microservices architecture using RabbitMQ for message queu
 
 ## Architecture
 
-This application consists of three microservices:
+This AI-powered application consists of three main microservices:
 
-1. **Frontend** - A lightweight web application that provides a user interface
-2. **API Server** - A REST API that handles requests and queues jobs
-3. **Job Runner** - A worker service that processes jobs and reports completion
+1. **Frontend** - A web interface for submitting research requests and viewing results
+2. **API Server** - A REST API that handles research requests and manages queue
+3. **AI Research Agent** - An intelligent agent that processes research using Ollama LLM and MCP services
 
 ## Components
 
 ### Frontend (`frontend/`)
-- Lightweight web application built with Gin
-- Provides HTML interface to submit jobs
-- Displays job status and results
+- Modern web application built with Gin and Bootstrap
+- Research request form with MCP service selection
+- Real-time research progress and confidence display
+- Source citation and result presentation
 
 ### API Server (`api-server/`)
 - REST API built with Gin
-- Handles job submission requests
-- Publishes jobs to RabbitMQ queue
-- Provides job status endpoints
+- Handles research request submissions
+- Publishes research tasks to RabbitMQ queue
+- Tracks research progress and results
 
-### Job Runner (`job-runner/`)
-- Worker service that consumes jobs from RabbitMQ
-- Processes jobs asynchronously with 5-60 second durations (max 1 minute)
-- Includes timeout protection to ensure no job exceeds 1 minute
-- Reports job status changes (pending → processing → completed/failed)
-- Simulates different types of work based on job description
-- Reports job completion back to message queue
+### AI Research Agent (`job-runner/`)
+- **Ollama Integration**: Uses local LLM for intelligent analysis
+- **MCP Services**: Integrates with Model Context Protocol for:
+  - Web search and scraping
+  - GitHub repository analysis
+  - Local file system access
+  - Database queries (configurable)
+- **Dapr Ready**: Prepared for service mesh integration
+- **Intelligent Processing**: 
+  - Multi-source data gathering
+  - AI-powered analysis and synthesis
+  - Confidence scoring for results
+  - Source citation tracking
+  - Token usage monitoring
 
 ### Shared (`shared/`)
-- Common data structures and message types
-- RabbitMQ client utilities
-- Configuration helpers
+- Enhanced data structures for research requests and results
+- RabbitMQ client utilities with research-specific messaging
+- AI and MCP service type definitions
+
+## AI Infrastructure
+
+### Ollama Integration
+- **Local LLM**: Uses Ollama for privacy-preserving AI analysis
+- **Model Flexibility**: Configurable model selection (default: llama3.2)
+- **Streaming Support**: Ready for real-time response streaming
+- **Resource Management**: Token usage tracking and optimization
+
+### MCP Services
+- **Web Search**: Intelligent web information gathering
+- **GitHub Integration**: Repository and code analysis
+- **File System**: Local document and data access
+- **Extensible**: Easy addition of new MCP service types
 
 ## Prerequisites
 
 - Go 1.21+
-- Docker and Docker Compose (for containerized deployment)
+- Docker and Docker Compose
+- **Ollama** (for AI functionality): Install from [ollama.ai](https://ollama.ai)
+- **Dapr CLI** (optional): For enhanced service mesh features
+- Minimum 8GB RAM (for Ollama LLM models)
 - `sudo` access for Docker commands (or user added to docker group)
-- RabbitMQ server (automatically started with Docker commands)
 
 ## Project Structure
 
@@ -229,6 +261,98 @@ See individual service READMEs for detailed instructions:
 - [Frontend](frontend/README.md) - Web UI, AJAX, real-time updates
 - [Shared](shared/README.md) - Common utilities, data models, RabbitMQ client
 
+## Production Deployment
+
+### Kubernetes Deployment Options
+
+The AI Research Agent supports multiple deployment configurations for Kubernetes:
+
+#### 🏠 Local Ollama (In-Cluster AI)
+Deploy with Ollama running as a pod within your Kubernetes cluster:
+
+```bash
+# Development environment
+kubectl apply -k k8s/overlays/development/
+
+# Production environment  
+kubectl apply -k k8s/overlays/production/
+```
+
+**Features:**
+- ✅ Complete AI stack in cluster
+- ✅ No external dependencies
+- ✅ Persistent model storage (10GB PVC)
+- ⚠️ Requires 4-8GB memory per node
+- ⚠️ Initial deployment takes 5-10 minutes (model download)
+
+#### 🌐 External Ollama (Network AI Server)
+Deploy using an external Ollama server on your network:
+
+```bash
+# Development with external AI
+kubectl apply -k k8s/overlays/development-external/
+
+# Production with external AI
+kubectl apply -k k8s/overlays/production-external/
+```
+
+**Before deployment, update the Ollama URL:**
+```bash
+# Edit the configmap patch
+vim k8s/overlays/development-external/configmap-patch.yaml
+# Update OLLAMA_URL to your server: http://your-ollama-server:11434
+```
+
+**Features:**
+- ✅ Reduced cluster resource usage
+- ✅ Shared AI server across workloads  
+- ✅ Faster deployments (no model download)
+- ✅ Higher concurrency (15 vs 5 jobs)
+- ⚠️ Network dependency on external server
+
+#### 📚 Deployment Documentation
+- **[Kubernetes AI Deployment Guide](k8s/AI_DEPLOYMENT_GUIDE.md)** - Comprehensive deployment instructions
+- **Available overlays:** development, production, development-external, production-external
+- **Resource requirements:** Memory, storage, and scaling considerations
+- **Troubleshooting:** Common issues and verification steps
+
+### Docker Compose (Development)
+
+For local development and testing:
+
+```bash
+# Full AI stack with local Ollama
+make docker-up
+
+# View AI system logs
+make docker-logs
+
+# Clean up everything including AI models
+make docker-clean-all
+```
+
+**Cleanup Options:**
+- `make docker-down` - Stop services (keep data)
+- `make docker-clean` - Remove containers and images
+- `make docker-clean-ollama` - Remove AI models and data
+- `make docker-clean-all` - Complete cleanup (⚠️ removes everything)
+
+### Environment Configuration
+
+Copy and customize the environment template:
+
+```bash
+cp .env.example .env
+vim .env  # Configure for your environment
+```
+
+**Key configurations:**
+- **Local Ollama:** `OLLAMA_URL=http://localhost:11434`
+- **External Ollama:** `OLLAMA_URL=http://your-ollama-server:11434`
+- **AI Model:** `OLLAMA_MODEL=llama3.2` (or your preferred model)
+- **Development:** `LOG_LEVEL=debug` and `GIN_MODE=debug`
+- **Production:** `LOG_LEVEL=info` and `GIN_MODE=release`
+
 ## Available Make Commands
 
 The project uses a **hierarchical Makefile structure**:
@@ -248,6 +372,13 @@ The project uses a **hierarchical Makefile structure**:
 - `make docker-down` - Stop docker-compose stack  
 - `make docker-logs` - View container logs
 - `make docker-restart` - Restart entire stack
+
+#### Cleanup Commands (Free Disk Space)
+- `make docker-clean` - Remove containers & images, keep data volumes  
+- `make docker-clean-ollama` - **Remove 2GB Ollama model** (frees significant space)
+- `make docker-clean-all` - **⚠️ Full cleanup** including volumes (removes model & data)
+
+> **💡 Tip:** The Ollama AI model is ~2GB. Use `make docker-clean-ollama` to free space if you don't need the AI features temporarily. The model will be automatically re-downloaded on next startup.
 
 #### Running Services (Local Development)
 - `make run-api` - Run API server on port 8081
@@ -407,48 +538,61 @@ Deploy to Kubernetes using the enhanced deployment script with support for multi
 ### Quick Start
 
 ```bash
-# Deploy to development environment (uses defaults)
-./k8s/deploy.sh development apply
+# Deploy to development environment with local Ollama (uses defaults)
+./k8s/deploy.sh --environment development --action apply --ollama local
 
-# Deploy to production environment
-./k8s/deploy.sh production apply
+# Deploy to development with external Ollama server
+./k8s/deploy.sh --environment development --action apply --ollama 192.168.1.100:11434
+
+# Deploy to production environment with local Ollama
+./k8s/deploy.sh --environment production --action apply --ollama local
 
 # Deploy with custom registry and version
-./k8s/deploy.sh development apply kringen v1.2.3
+./k8s/deploy.sh -e dev -a apply -o local -r kringen -t v1.2.3
 
-# Deploy with custom hostname
-./k8s/deploy.sh development apply kringen v1.2.3 my-app.example.com
+# Deploy with external Ollama and custom hostname
+./k8s/deploy.sh -e prod -a apply -o 10.0.1.50:11434 -r kringen -t v1.2.3 -h my-app.example.com
 ```
 
 ### Deployment Script Usage
 
-**Syntax**: `./k8s/deploy.sh [environment] [action] [registry] [tag] [hostname]`
+**Syntax**: `./k8s/deploy.sh [options]`
 
-**Parameters**:
-- `environment` - Target environment (`development` or `production`)
-- `action` - Action to perform (`apply`, `delete`, `diff`, or `build`)
-- `registry` - Container registry URL (optional, defaults to `localhost:5000`)
-- `tag` - Image tag (optional, defaults to `latest`)
-- `hostname` - Custom hostname for ingress (optional, uses environment defaults)
+**Required Parameters**:
+- `-e, --environment` - Target environment (`development`/`dev` or `production`/`prod`)
+- `-a, --action` - Action to perform (`apply`, `delete`, `diff`, or `build`)
+
+**Optional Parameters**:
+- `-o, --ollama` - Ollama deployment type:
+  - `local` - Deploy Ollama as a pod in the cluster (default)
+  - `<host:port>` - Use external Ollama server (e.g., `192.168.1.100:11434`)
+- `-r, --registry` - Container registry URL (defaults to `docker.io`)
+- `-t, --tag` - Image tag (defaults to `latest`)
+- `-h, --hostname` - Custom hostname for ingress (uses environment defaults)
+- `--help` - Show usage information
 
 **Examples**:
 ```bash
-# Development deployment with defaults
-./k8s/deploy.sh development apply
-# → Uses: localhost:5000 registry, latest tag, microservices-demo.local hostname
+# Development deployment with local Ollama (default)
+./k8s/deploy.sh --environment development --action apply --ollama local
+# → Uses: local Ollama in cluster, docker.io registry, latest tag
 
-# Production deployment with custom settings
-./k8s/deploy.sh production apply kringen v2.1.0 microservices.kringen.io
-# → Uses: kringen registry, v2.1.0 tag, custom hostname
+# Development deployment with external Ollama server
+./k8s/deploy.sh --environment development --action apply --ollama 192.168.1.100:11434
+# → Uses: external Ollama at 192.168.1.100:11434, automatically configures OLLAMA_URL
+
+# Production deployment with external Ollama and custom settings
+./k8s/deploy.sh -e prod -a apply -o ollama.company.com:11434 -r kringen -t v2.1.0 -h microservices.kringen.io
+# → Uses: external Ollama server, kringen registry, v2.1.0 tag, custom hostname
 
 # View what would be deployed without applying
-./k8s/deploy.sh development diff kringen v1.0.0
+./k8s/deploy.sh -e dev -a diff -o 10.0.1.50:11434 -r kringen -t v1.0.0
 
 # Build manifests only (for debugging)
-./k8s/deploy.sh development build
+./k8s/deploy.sh --environment development --action build --ollama local
 
 # Clean up deployment
-./k8s/deploy.sh development delete
+./k8s/deploy.sh --environment development --action delete --ollama 192.168.1.100:11434
 ```
 
 ### Environment Configuration

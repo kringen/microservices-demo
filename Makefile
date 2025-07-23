@@ -1,4 +1,4 @@
-.PHONY: all build test clean run run-api run-job run-frontend stop-all deps rabbitmq-up rabbitmq-down docker-build docker-up docker-down docker-build-push docker-push docker-build-push-tag
+.PHONY: all build test clean run run-api run-job run-frontend stop-all deps rabbitmq-up rabbitmq-down docker-build docker-up docker-down docker-build-push docker-push docker-build-push-tag docker-clean docker-clean-all docker-clean-ollama
 
 # Default target
 all: deps test build
@@ -209,6 +209,52 @@ docker-logs:
 # Docker: Restart stack
 docker-restart: docker-down docker-up
 
+# Docker: Clean up containers and images (keep volumes)
+docker-clean:
+	@echo "🧹 Cleaning Docker containers and images..."
+	@echo "Stopping and removing containers..."
+	docker-compose down --remove-orphans || true
+	@echo "Removing application images..."
+	docker rmi microservices-api-server:latest microservices-frontend:latest microservices-job-runner:latest || true
+	docker rmi microservices-demo_api-server microservices-demo_frontend microservices-demo_research-agent || true
+	@echo "Pruning unused Docker resources..."
+	docker system prune -f
+	@echo "✅ Docker cleanup complete! (Volumes preserved)"
+
+# Docker: Clean up everything including Ollama model (WARNING: Will delete 2GB model)
+docker-clean-all:
+	@echo "⚠️  WARNING: This will remove ALL containers, images, AND volumes!"
+	@echo "⚠️  This includes the 2GB Ollama model which will need to be re-downloaded."
+	@echo "⚠️  Press Ctrl+C in the next 10 seconds to cancel..."
+	@sleep 10
+	@echo "🧹 Performing complete cleanup..."
+	docker-compose down --volumes --remove-orphans || true
+	@echo "Removing application images..."
+	docker rmi microservices-api-server:latest microservices-frontend:latest microservices-job-runner:latest || true
+	docker rmi microservices-demo_api-server microservices-demo_frontend microservices-demo_research-agent || true
+	@echo "Removing Ollama images..."
+	docker rmi ollama/ollama:latest || true
+	@echo "Removing volumes (including Ollama model)..."
+	docker volume rm microservices-demo_ollama_data microservices-demo_rabbitmq_data || true
+	@echo "Pruning all unused Docker resources..."
+	docker system prune -af --volumes
+	@echo "✅ Complete cleanup finished! Next run will re-download Ollama model."
+
+# Docker: Clean up only Ollama model and data (free 2GB+ space)
+docker-clean-ollama:
+	@echo "🧹 Cleaning Ollama model and data..."
+	@echo "⚠️  This will remove the 2GB Ollama model - it will be re-downloaded on next startup."
+	@echo "⚠️  Press Ctrl+C in the next 5 seconds to cancel..."
+	@sleep 5
+	@echo "Stopping Ollama services..."
+	docker-compose stop ollama ollama-init || true
+	docker-compose rm -f ollama ollama-init || true
+	@echo "Removing Ollama volume..."
+	docker volume rm microservices-demo_ollama_data || true
+	@echo "Removing Ollama images..."
+	docker rmi ollama/ollama:latest || true
+	@echo "✅ Ollama cleanup complete! Model will be re-downloaded on next 'make docker-up'"
+
 # Run all services (requires multiple terminals)
 run-all:
 	@echo "To run all services, open 3 separate terminals and run:"
@@ -308,6 +354,7 @@ help:
 	@echo "  make docker-down    - Stop docker-compose stack"
 	@echo "  make docker-logs    - View container logs"
 	@echo "  make docker-restart - Restart entire stack"
+	@echo "  make docker-clean   - Clean containers & images (preserve data)"
 	@echo ""
 	@echo "📦 Docker Registry Commands:"
 	@echo "  make docker-build-push REPO=<registry> - Build and push to registry"
@@ -332,8 +379,11 @@ help:
 	@echo "  make rabbitmq-down  - Stop RabbitMQ container"
 	@echo ""
 	@echo "🧹 Cleanup:"
-	@echo "  make clean          - Clean build artifacts"
-	@echo "  make stop-all       - Stop all background services"
+	@echo "  make clean              - Clean build artifacts"
+	@echo "  make stop-all           - Stop all background services"
+	@echo "  make docker-clean       - Clean containers & images (keep volumes)"
+	@echo "  make docker-clean-ollama - Remove 2GB Ollama model (free space)"
+	@echo "  make docker-clean-all   - Full cleanup including volumes (⚠️ removes model)"
 	@echo ""
 	@echo "📚 Individual Service Help:"
 	@echo "  cd api-server && make help"
