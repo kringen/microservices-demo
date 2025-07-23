@@ -20,5 +20,9 @@ data:
   OLLAMA_URL: "http://dev-ollama-service:11434"
   MCP_TIMEOUT: "60s"  # Reduced for development
   
+  # MCP Configuration - Use test mode for development
+  MCP_TEST_MODE: "true"  # Use simulated data for development
+  # Note: When MCP_TEST_MODE=true, MCP server URLs are ignored
+  
   # Fix RabbitMQ service name for development environment
   RABBITMQ_HOST: "dev-rabbitmq-service"

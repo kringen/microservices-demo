@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .research-result {
+            line-height: 1.6;
+        }
+        .research-result h1, .research-result h2, .research-result h3, 
+        .research-result h4, .research-result h5, .research-result h6 {
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            color: #495057;
+        }
+        .research-result h1 { font-size: 1.5rem; }
+        .research-result h2 { font-size: 1.3rem; }
+        .research-result h3 { font-size: 1.1rem; }
+        .research-result p {
+            margin-bottom: 1rem;
+        }
+        .research-result ul, .research-result ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+        .research-result li {
+            margin-bottom: 0.25rem;
+        }
+        .research-result code {
+            background-color: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.9em;
+            color: #d63384;
+        }
+        .research-result pre {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+        .research-result pre code {
+            background: none;
+            padding: 0;
+            color: #212529;
+        }
+        .research-result blockquote {
+            border-left: 4px solid #dee2e6;
+            padding-left: 1rem;
+            margin: 1rem 0;
+            font-style: italic;
+            color: #6c757d;
+        }
+        .research-result table {
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Markdown Rendering Test</h1>
+        
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Research Results</h6>
+            </div>
+            <div class="card-body">
+                <div class="research-result" id="research-result-content"># AI Research Report
+
+## Executive Summary
+
+This is a **comprehensive analysis** of the AI market trends for 2025. Key findings include:
+
+- Market growth of *35%* year-over-year
+- Increased adoption in `healthcare` and `finance` sectors
+- Emerging technologies showing significant promise
+
+## Key Metrics
+
+| Metric | 2024 | 2025 (Projected) | Growth |
+|--------|------|------------------|--------|
+| Market Size | $150B | $203B | +35% |
+| AI Companies | 12,000 | 16,800 | +40% |
+| Investment | $75B | $110B | +47% |
+
+## Technical Analysis
+
+### Implementation Strategies
+
+1. **Cloud-first approach**
+   - Leverage existing infrastructure
+   - Reduce deployment time
+   - Lower operational costs
+
+2. **Edge computing integration**
+   - Real-time processing capabilities
+   - Reduced latency
+   - Enhanced privacy
+
+### Code Example
+
+```python
+# AI model deployment example
+import tensorflow as tf
+
+def deploy_model(model_path):
+    model = tf.keras.models.load_model(model_path)
+    return model.predict(input_data)
+```
+
+## Recommendations
+
+> Organizations should prioritize AI literacy training for their workforce to maximize the benefits of AI adoption.
+
+The research indicates that companies investing in AI training see **3x higher** ROI compared to those that don't.
+
+---
+
+*Report generated using advanced AI research agents*</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+    <script>
+        // Render markdown in research results
+        document.addEventListener('DOMContentLoaded', function() {
+            const resultElement = document.getElementById('research-result-content');
+            if (resultElement && resultElement.textContent.trim()) {
+                const markdownText = resultElement.textContent;
+                // Configure marked with safe defaults
+                marked.setOptions({
+                    breaks: true,        // Convert line breaks to <br>
+                    gfm: true,          // GitHub Flavored Markdown
+                    sanitize: false,    // We trust the AI output, but you might want to sanitize
+                    smartLists: true,   // Use smarter list behavior
+                    smartypants: true   // Use smart quotes and dashes
+                });
+                
+                // Render markdown to HTML
+                const htmlContent = marked.parse(markdownText);
+                resultElement.innerHTML = htmlContent;
+                
+                // Add some custom styling to the rendered content
+                resultElement.style.lineHeight = '1.6';
+                resultElement.style.fontSize = '15px';
+                
+                // Style tables if any
+                const tables = resultElement.querySelectorAll('table');
+                tables.forEach(table => {
+                    table.classList.add('table', 'table-striped', 'table-sm');
+                    table.style.marginTop = '1rem';
+                });
+                
+                // Style code blocks
+                const codeBlocks = resultElement.querySelectorAll('pre code');
+                codeBlocks.forEach(block => {
+                    block.style.backgroundColor = '#f8f9fa';
+                    block.style.padding = '1rem';
+                    block.style.borderRadius = '0.375rem';
+                    block.style.fontSize = '14px';
+                });
+                
+                // Style blockquotes
+                const blockquotes = resultElement.querySelectorAll('blockquote');
+                blockquotes.forEach(quote => {
+                    quote.style.borderLeft = '4px solid #dee2e6';
+                    quote.style.paddingLeft = '1rem';
+                    quote.style.marginLeft = '0';
+                    quote.style.fontStyle = 'italic';
+                    quote.style.color = '#6c757d';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

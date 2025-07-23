@@ -1,0 +1,117 @@
+# Docker Compose configuration for local development with MCP servers
+version: '3.8'
+
+services:
+  # Existing services...
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: password
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  # MCP Servers for local development
+  mcp-web-server:
+    image: mcp-web-server:latest  # You would build this image
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - SEARCH_ENGINE=duckduckgo
+      # - SEARCH_API_KEY=your-api-key  # Uncomment for Google/Bing
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mcp-github-server:
+    image: mcp-github-server:latest  # You would build this image
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - GITHUB_API_URL=https://api.github.com
+      # - GITHUB_TOKEN=your-github-token  # Set via .env file
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mcp-files-server:
+    image: mcp-files-server:latest  # You would build this image
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - FILES_ROOT_PATH=/data
+      - ALLOWED_EXTENSIONS=.md,.txt,.go,.js,.py,.yaml,.json
+    volumes:
+      - ./data:/data:ro  # Mount local data directory
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Research Agent (Job Runner)
+  job-runner:
+    build: ./job-runner
+    depends_on:
+      - rabbitmq
+      - ollama
+      - mcp-web-server
+      - mcp-github-server
+      - mcp-files-server
+    environment:
+      - RABBITMQ_URL=amqp://admin:password@rabbitmq:5672/
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2
+      - MCP_TEST_MODE=false  # Use real MCP servers
+      - MCP_WEB_SERVER_URL=http://mcp-web-server:3001
+      - MCP_GITHUB_SERVER_URL=http://mcp-github-server:3002
+      - MCP_FILES_SERVER_URL=http://mcp-files-server:3003
+      - MCP_TIMEOUT=120s
+
+  # API Server
+  api-server:
+    build: ./api-server
+    ports:
+      - "8081:8081"
+    depends_on:
+      - rabbitmq
+    environment:
+      - RABBITMQ_URL=amqp://admin:password@rabbitmq:5672/
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2
+      - MCP_TEST_MODE=false
+      - MCP_WEB_SERVER_URL=http://mcp-web-server:3001
+      - MCP_GITHUB_SERVER_URL=http://mcp-github-server:3002
+      - MCP_FILES_SERVER_URL=http://mcp-files-server:3003
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api-server
+    environment:
+      - API_SERVER_URL=http://api-server:8081
+
+volumes:
+  ollama_data:
+
+# For production deployment, create a .env file with:
+# GITHUB_TOKEN=your_github_personal_access_token
+# SEARCH_API_KEY=your_search_api_key (if using Google/Bing)

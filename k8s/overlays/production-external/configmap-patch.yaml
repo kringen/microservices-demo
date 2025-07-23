@@ -17,6 +17,12 @@ data:
   OLLAMA_URL: "http://ollama.internal.company.com:11434"  # Example production server
   MCP_TIMEOUT: "120s"  # Production timeout for external calls
   
+  # External MCP Server Configuration
+  MCP_TEST_MODE: "false"  # Use real external MCP servers
+  MCP_WEB_SERVER_URL: "https://mcp-web.internal.company.com:443"
+  MCP_GITHUB_SERVER_URL: "https://mcp-github.internal.company.com:443"
+  MCP_FILES_SERVER_URL: "https://mcp-files.internal.company.com:443"
+  
   # Production job settings with external AI
   MAX_CONCURRENT_JOBS: "15"  # Higher concurrency with external AI
   JOB_TIMEOUT: "480s"  # Longer timeout for production + network

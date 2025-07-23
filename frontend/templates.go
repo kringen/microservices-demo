@@ -174,6 +174,7 @@ const indexTemplate = `
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
     <script>
         let researchRefreshInterval;
 
@@ -346,14 +347,41 @@ const indexTemplate = `
                 const statusDiv = document.getElementById('system-status');
                 const statusClass = data.status === 'healthy' ? 'text-success' : 'text-danger';
                 const rabbitStatus = data.rabbitmq === 'connected' ? 'Connected' : 'Disconnected';
-                const ollamaStatus = data.ollama || 'Unknown';
                 
-                statusDiv.innerHTML = '<div class="' + statusClass + '">' +
+                let statusHTML = '<div class="' + statusClass + '">' +
                     '<strong>API Server:</strong> ' + data.status + '<br>' +
-                    '<strong>RabbitMQ:</strong> ' + rabbitStatus + '<br>' +
-                    '<strong>Ollama AI:</strong> ' + ollamaStatus + '<br>' +
-                    '<small>Last checked: ' + new Date(data.timestamp).toLocaleString() + '</small>' +
+                    '<strong>RabbitMQ:</strong> ' + rabbitStatus + '<br>';
+                
+                // Add Ollama information
+                if (data.ollama) {
+                    statusHTML += '<strong>Ollama AI:</strong> ' + data.ollama.model + 
+                                 ' <small>(' + data.ollama.endpoint + ')</small><br>';
+                } else {
+                    statusHTML += '<strong>Ollama AI:</strong> Unknown<br>';
+                }
+                
+                // Add MCP information
+                if (data.mcp) {
+                    if (data.mcp.test_mode) {
+                        statusHTML += '<strong>MCP Services:</strong> Test Mode (Simulated)<br>';
+                    } else {
+                        statusHTML += '<strong>MCP Services:</strong> Production Mode<br>';
+                        if (data.mcp.endpoints) {
+                            statusHTML += '<div class="ms-3 small">';
+                            statusHTML += '• Web Search: ' + data.mcp.endpoints.web_search + '<br>';
+                            statusHTML += '• GitHub: ' + data.mcp.endpoints.github + '<br>';
+                            statusHTML += '• Files: ' + data.mcp.endpoints.files + '<br>';
+                            statusHTML += '</div>';
+                        }
+                    }
+                } else {
+                    statusHTML += '<strong>MCP Services:</strong> Unknown<br>';
+                }
+                
+                statusHTML += '<small>Last checked: ' + new Date(data.timestamp).toLocaleString() + '</small>' +
                     '</div>';
+                
+                statusDiv.innerHTML = statusHTML;
             })
             .catch(error => {
                 document.getElementById('system-status').innerHTML = 
@@ -396,8 +424,55 @@ const researchStatusTemplate = `
             overflow-y: auto;
         }
         .research-result {
-            white-space: pre-wrap;
             line-height: 1.6;
+        }
+        .research-result h1, .research-result h2, .research-result h3, 
+        .research-result h4, .research-result h5, .research-result h6 {
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            color: #495057;
+        }
+        .research-result h1 { font-size: 1.5rem; }
+        .research-result h2 { font-size: 1.3rem; }
+        .research-result h3 { font-size: 1.1rem; }
+        .research-result p {
+            margin-bottom: 1rem;
+        }
+        .research-result ul, .research-result ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+        .research-result li {
+            margin-bottom: 0.25rem;
+        }
+        .research-result code {
+            background-color: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.9em;
+            color: #d63384;
+        }
+        .research-result pre {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+        .research-result pre code {
+            background: none;
+            padding: 0;
+            color: #212529;
+        }
+        .research-result blockquote {
+            border-left: 4px solid #dee2e6;
+            padding-left: 1rem;
+            margin: 1rem 0;
+            font-style: italic;
+            color: #6c757d;
+        }
+        .research-result table {
+            margin: 1rem 0;
         }
     </style>
 </head>
@@ -488,7 +563,7 @@ const researchStatusTemplate = `
                                 <h6 class="mb-0">Research Results</h6>
                             </div>
                             <div class="card-body">
-                                <div class="research-result">{{.Job.Result}}</div>
+                                <div class="research-result" id="research-result-content">{{.Job.Result}}</div>
                             </div>
                         </div>
                         {{end}}
@@ -564,7 +639,58 @@ const researchStatusTemplate = `
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
     <script>
+        // Render markdown in research results
+        document.addEventListener('DOMContentLoaded', function() {
+            const resultElement = document.getElementById('research-result-content');
+            if (resultElement && resultElement.textContent.trim()) {
+                const markdownText = resultElement.textContent;
+                // Configure marked with safe defaults
+                marked.setOptions({
+                    breaks: true,        // Convert line breaks to <br>
+                    gfm: true,          // GitHub Flavored Markdown
+                    sanitize: false,    // We trust the AI output, but you might want to sanitize
+                    smartLists: true,   // Use smarter list behavior
+                    smartypants: true   // Use smart quotes and dashes
+                });
+                
+                // Render markdown to HTML
+                const htmlContent = marked.parse(markdownText);
+                resultElement.innerHTML = htmlContent;
+                
+                // Add some custom styling to the rendered content
+                resultElement.style.lineHeight = '1.6';
+                resultElement.style.fontSize = '15px';
+                
+                // Style tables if any
+                const tables = resultElement.querySelectorAll('table');
+                tables.forEach(table => {
+                    table.classList.add('table', 'table-striped', 'table-sm');
+                    table.style.marginTop = '1rem';
+                });
+                
+                // Style code blocks
+                const codeBlocks = resultElement.querySelectorAll('pre code');
+                codeBlocks.forEach(block => {
+                    block.style.backgroundColor = '#f8f9fa';
+                    block.style.padding = '1rem';
+                    block.style.borderRadius = '0.375rem';
+                    block.style.fontSize = '14px';
+                });
+                
+                // Style blockquotes
+                const blockquotes = resultElement.querySelectorAll('blockquote');
+                blockquotes.forEach(quote => {
+                    quote.style.borderLeft = '4px solid #dee2e6';
+                    quote.style.paddingLeft = '1rem';
+                    quote.style.marginLeft = '0';
+                    quote.style.fontStyle = 'italic';
+                    quote.style.color = '#6c757d';
+                });
+            }
+        });
+
         // Auto-refresh research status pages every 3 seconds
         if (window.location.pathname.includes('/status/')) {
             setInterval(function() {
