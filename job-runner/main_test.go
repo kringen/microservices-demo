@@ -18,7 +18,7 @@ func TestResearchRequestHandling(t *testing.T) {
 	if agent == nil {
 		t.Error("Expected research agent to be created")
 	}
-	
+
 	// Test with a sample research request
 	jobMessage := shared.JobMessage{
 		JobID:        "test-123",
@@ -40,11 +40,11 @@ func TestResearchRequestHandling(t *testing.T) {
 func TestMCPServiceMock(t *testing.T) {
 	agent := NewResearchAgent()
 	agent.initMCPServices()
-	
+
 	if agent.mcpHandler == nil {
 		t.Error("Expected MCP handler to be initialized")
 	}
-	
+
 	// Test that web service is available
 	if !agent.mcpHandler.availableServices[shared.MCPServiceWeb] {
 		t.Error("Expected web service to be available")

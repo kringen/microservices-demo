@@ -140,7 +140,7 @@ func (f *Frontend) homePage(c *gin.Context) {
 func (f *Frontend) submitResearch(c *gin.Context) {
 	// Handle both form data and JSON
 	var researchRequest shared.ResearchRequest
-	
+
 	if c.GetHeader("Content-Type") == "application/json" {
 		if err := c.ShouldBindJSON(&researchRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -155,18 +155,18 @@ func (f *Frontend) submitResearch(c *gin.Context) {
 		query := c.PostForm("query")
 		researchType := c.PostForm("research_type")
 		mcpServices := c.PostFormArray("mcp_services")
-		
+
 		if title == "" || query == "" {
 			c.Redirect(http.StatusSeeOther, "/?error=Job title and instructions are required")
 			return
 		}
-		
+
 		// Convert string array to MCPService array
 		var services []shared.MCPService
 		for _, service := range mcpServices {
 			services = append(services, shared.MCPService(service))
 		}
-		
+
 		researchRequest = shared.ResearchRequest{
 			Title:        title,
 			Query:        query,

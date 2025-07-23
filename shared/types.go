@@ -28,30 +28,30 @@ const (
 type MCPService string
 
 const (
-	MCPServiceWeb       MCPService = "web"
-	MCPServiceGitHub    MCPService = "github"
-	MCPServiceDatabase  MCPService = "database"
-	MCPServiceFiles     MCPService = "files"
-	MCPServiceCalendar  MCPService = "calendar"
-	MCPServiceSlack     MCPService = "slack"
+	MCPServiceWeb      MCPService = "web"
+	MCPServiceGitHub   MCPService = "github"
+	MCPServiceDatabase MCPService = "database"
+	MCPServiceFiles    MCPService = "files"
+	MCPServiceCalendar MCPService = "calendar"
+	MCPServiceSlack    MCPService = "slack"
 )
 
 // Job represents a research job in the system
 type Job struct {
-	ID           string        `json:"id"`
-	Title        string        `json:"title"`
-	Query        string        `json:"query"`
-	ResearchType ResearchType  `json:"research_type"`
-	MCPServices  []MCPService  `json:"mcp_services"`
-	Status       JobStatus     `json:"status"`
-	CreatedAt    time.Time     `json:"created_at"`
-	StartedAt    *time.Time    `json:"started_at,omitempty"`
-	CompletedAt  *time.Time    `json:"completed_at,omitempty"`
-	Result       string        `json:"result,omitempty"`
-	Sources      []string      `json:"sources,omitempty"`
-	Error        string        `json:"error,omitempty"`
-	Confidence   float64       `json:"confidence,omitempty"`
-	TokensUsed   int           `json:"tokens_used,omitempty"`
+	ID           string       `json:"id"`
+	Title        string       `json:"title"`
+	Query        string       `json:"query"`
+	ResearchType ResearchType `json:"research_type"`
+	MCPServices  []MCPService `json:"mcp_services"`
+	Status       JobStatus    `json:"status"`
+	CreatedAt    time.Time    `json:"created_at"`
+	StartedAt    *time.Time   `json:"started_at,omitempty"`
+	CompletedAt  *time.Time   `json:"completed_at,omitempty"`
+	Result       string       `json:"result,omitempty"`
+	Sources      []string     `json:"sources,omitempty"`
+	Error        string       `json:"error,omitempty"`
+	Confidence   float64      `json:"confidence,omitempty"`
+	TokensUsed   int          `json:"tokens_used,omitempty"`
 }
 
 // ResearchRequest represents a request to create a new research job

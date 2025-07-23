@@ -43,15 +43,15 @@ type OllamaResponse struct {
 type MCPServiceHandler struct {
 	// In a real implementation, these would be actual MCP client connections
 	availableServices map[shared.MCPService]bool
-	testMode         bool
+	testMode          bool
 }
 
 // ResearchAgent is the AI-powered research agent
 type ResearchAgent struct {
-	rabbitmq    *shared.RabbitMQClient
-	ollama      *OllamaClient
-	mcpHandler  *MCPServiceHandler
-	daprURL     string
+	rabbitmq   *shared.RabbitMQClient
+	ollama     *OllamaClient
+	mcpHandler *MCPServiceHandler
+	daprURL    string
 }
 
 func NewResearchAgent() *ResearchAgent {
@@ -62,7 +62,7 @@ func NewResearchAgent() *ResearchAgent {
 
 func (ra *ResearchAgent) initOllama() error {
 	ollamaURL := getEnvOrDefault("OLLAMA_URL", "http://localhost:11434")
-	
+
 	ra.ollama = &OllamaClient{
 		baseURL: ollamaURL,
 		client:  &http.Client{Timeout: 5 * time.Minute},
@@ -102,7 +102,7 @@ func (ra *ResearchAgent) testOllamaConnection(ctx context.Context) error {
 func (ra *ResearchAgent) initMCPServices() {
 	// Check if we're in test mode
 	testMode := getEnvOrDefault("MCP_TEST_MODE", "false") == "true"
-	
+
 	ra.mcpHandler = &MCPServiceHandler{
 		availableServices: map[shared.MCPService]bool{
 			shared.MCPServiceWeb:      true,  // Web search/scraping
@@ -114,7 +114,7 @@ func (ra *ResearchAgent) initMCPServices() {
 		},
 		testMode: testMode,
 	}
-	
+
 	if testMode {
 		log.Println("MCP services initialized in TEST MODE (using simulated data)")
 	} else {
@@ -228,9 +228,9 @@ func (ra *ResearchAgent) processResearchRequest(jobMessage shared.JobMessage) sh
 	result.Confidence = confidence
 	result.TokensUsed = tokens
 
-	log.Printf("Research %s completed in %v with confidence %.2f", 
+	log.Printf("Research %s completed in %v with confidence %.2f",
 		jobMessage.JobID, duration, confidence)
-	
+
 	return result
 }
 
@@ -278,7 +278,7 @@ func (ra *ResearchAgent) queryMCPService(ctx context.Context, service shared.MCP
 			return "", nil, fmt.Errorf("unsupported MCP service: %s", service)
 		}
 	}
-	
+
 	// Real MCP server implementations
 	switch service {
 	case shared.MCPServiceWeb:
@@ -309,7 +309,7 @@ Key findings:
 
 	sources := []string{
 		"https://example.com/research-1",
-		"https://example.com/research-2", 
+		"https://example.com/research-2",
 		"https://example.com/research-3",
 	}
 
@@ -372,9 +372,9 @@ func (ra *ResearchAgent) queryWebSearchMCP(ctx context.Context, query string) (s
 	// Real web search MCP server implementation
 	// This would typically use a search engine API like Google, Bing, or DuckDuckGo
 	// through an MCP server
-	
+
 	mcpServerURL := getEnvOrDefault("MCP_WEB_SERVER_URL", "http://localhost:3001")
-	
+
 	requestBody := map[string]interface{}{
 		"method": "search",
 		"params": map[string]interface{}{
@@ -382,23 +382,23 @@ func (ra *ResearchAgent) queryWebSearchMCP(ctx context.Context, query string) (s
 			"limit": 10,
 		},
 	}
-	
+
 	data, sources, err := ra.callMCPServer(ctx, mcpServerURL, requestBody)
 	if err != nil {
 		log.Printf("Web search MCP server error: %v", err)
 		// Fallback to simulation if MCP server fails
 		return ra.simulateWebSearch(query)
 	}
-	
+
 	return data, sources, nil
 }
 
 func (ra *ResearchAgent) queryGitHubMCP(ctx context.Context, query string) (string, []string, error) {
 	// Real GitHub MCP server implementation
 	// This would use the GitHub API through an MCP server
-	
+
 	mcpServerURL := getEnvOrDefault("MCP_GITHUB_SERVER_URL", "http://localhost:3002")
-	
+
 	requestBody := map[string]interface{}{
 		"method": "search_repositories",
 		"params": map[string]interface{}{
@@ -408,23 +408,23 @@ func (ra *ResearchAgent) queryGitHubMCP(ctx context.Context, query string) (stri
 			"limit": 10,
 		},
 	}
-	
+
 	data, sources, err := ra.callMCPServer(ctx, mcpServerURL, requestBody)
 	if err != nil {
 		log.Printf("GitHub MCP server error: %v", err)
 		// Fallback to simulation if MCP server fails
 		return ra.simulateGitHubSearch(query)
 	}
-	
+
 	return data, sources, nil
 }
 
 func (ra *ResearchAgent) queryFilesMCP(ctx context.Context, query string) (string, []string, error) {
 	// Real file system MCP server implementation
 	// This would search local or networked file systems through an MCP server
-	
+
 	mcpServerURL := getEnvOrDefault("MCP_FILES_SERVER_URL", "http://localhost:3003")
-	
+
 	requestBody := map[string]interface{}{
 		"method": "search_files",
 		"params": map[string]interface{}{
@@ -433,14 +433,14 @@ func (ra *ResearchAgent) queryFilesMCP(ctx context.Context, query string) (strin
 			"limit":     20,
 		},
 	}
-	
+
 	data, sources, err := ra.callMCPServer(ctx, mcpServerURL, requestBody)
 	if err != nil {
 		log.Printf("Files MCP server error: %v", err)
 		// Fallback to simulation if MCP server fails
 		return ra.simulateFileSearch(query)
 	}
-	
+
 	return data, sources, nil
 }
 
@@ -451,14 +451,14 @@ func (ra *ResearchAgent) callMCPServer(ctx context.Context, serverURL string, re
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to marshal MCP request: %w", err)
 	}
-	
+
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", serverURL+"/api/mcp", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create MCP request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// Make HTTP request with timeout
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -466,27 +466,27 @@ func (ra *ResearchAgent) callMCPServer(ctx context.Context, serverURL string, re
 		return "", nil, fmt.Errorf("MCP server request failed: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		return "", nil, fmt.Errorf("MCP server returned status %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	// Parse response
 	var mcpResponse struct {
 		Data    string   `json:"data"`
 		Sources []string `json:"sources"`
 		Error   string   `json:"error,omitempty"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&mcpResponse); err != nil {
 		return "", nil, fmt.Errorf("failed to decode MCP response: %w", err)
 	}
-	
+
 	if mcpResponse.Error != "" {
 		return "", nil, fmt.Errorf("MCP server error: %s", mcpResponse.Error)
 	}
-	
+
 	return mcpResponse.Data, mcpResponse.Sources, nil
 }
 
@@ -520,7 +520,7 @@ Gathered Information:
 
 NOTE: The sources listed above are placeholder examples. Please provide a comprehensive research report and suggest realistic, relevant sources that would be appropriate for this research topic. Include references to actual websites, documentation, academic papers, or industry resources that would credibly support this type of research.
 
-Please structure your response using markdown formatting and provide a professional research report.`, 
+Please structure your response using markdown formatting and provide a professional research report.`,
 			jobMessage.Title, jobMessage.Query, jobMessage.ResearchType, mcpData)
 	} else {
 		// In production mode, sources are real
@@ -536,7 +536,7 @@ Research Type: %s
 Gathered Information from MCP Services:
 %s
 
-Please provide a comprehensive research report based on this real data. Structure your response using markdown formatting and provide a professional analysis.`, 
+Please provide a comprehensive research report based on this real data. Structure your response using markdown formatting and provide a professional analysis.`,
 			jobMessage.Title, jobMessage.Query, jobMessage.ResearchType, mcpData)
 	}
 
@@ -554,7 +554,7 @@ Please provide a comprehensive research report based on this real data. Structur
 
 func (ra *ResearchAgent) callOllama(ctx context.Context, systemPrompt, userPrompt string) (string, int, error) {
 	model := getEnvOrDefault("OLLAMA_MODEL", "llama3.2")
-	
+
 	reqBody := OllamaRequest{
 		Model:  model,
 		Prompt: userPrompt,

@@ -197,20 +197,20 @@ func (s *APIServer) healthCheck(c *gin.Context) {
 	}
 
 	status["rabbitmq"] = "connected"
-	
+
 	// Add Ollama server endpoint information
 	ollamaURL := getEnvOrDefault("OLLAMA_URL", "http://localhost:11434")
 	status["ollama"] = gin.H{
 		"endpoint": ollamaURL,
 		"model":    getEnvOrDefault("OLLAMA_MODEL", "llama3.2"),
 	}
-	
+
 	// Add MCP configuration information
 	mcpTestMode := getEnvOrDefault("MCP_TEST_MODE", "false") == "true"
 	mcpInfo := gin.H{
 		"test_mode": mcpTestMode,
 	}
-	
+
 	if !mcpTestMode {
 		mcpInfo["endpoints"] = gin.H{
 			"web_search": getEnvOrDefault("MCP_WEB_SERVER_URL", "http://localhost:3001"),
@@ -218,9 +218,9 @@ func (s *APIServer) healthCheck(c *gin.Context) {
 			"files":      getEnvOrDefault("MCP_FILES_SERVER_URL", "http://localhost:3003"),
 		}
 	}
-	
+
 	status["mcp"] = mcpInfo
-	
+
 	c.JSON(http.StatusOK, status)
 }
 
