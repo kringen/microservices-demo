@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -172,6 +173,11 @@ func (s *APIServer) listJobs(c *gin.Context) {
 		jobs = append(jobs, job)
 	}
 	s.jobsMutex.RUnlock()
+
+	// Sort jobs by CreatedAt in descending order (newest first)
+	sort.Slice(jobs, func(i, j int) bool {
+		return jobs[i].CreatedAt.After(jobs[j].CreatedAt)
+	})
 
 	c.JSON(http.StatusOK, gin.H{"jobs": jobs})
 }
