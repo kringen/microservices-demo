@@ -55,8 +55,8 @@ func TestSubmitResearchForm(t *testing.T) {
 	}
 
 	location := w.Header().Get("Location")
-	if !strings.Contains(location, "error=Title") {
-		t.Error("Expected redirect to contain error message about title and query")
+	if !strings.Contains(location, "error=Job") || !strings.Contains(location, "title") || !strings.Contains(location, "instructions") {
+		t.Errorf("Expected redirect to contain error message about title and query, got: %s", location)
 	}
 }
 

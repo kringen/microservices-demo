@@ -90,6 +90,27 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: ENABLE_AI_FEATURES
+            # MCP Server Configuration
+            - name: MCP_TEST_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MCP_TEST_MODE
+            - name: MCP_WEB_SERVER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MCP_WEB_SERVER_URL
+            - name: MCP_GITHUB_SERVER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MCP_GITHUB_SERVER_URL
+            - name: MCP_FILES_SERVER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: MCP_FILES_SERVER_URL
           # No HTTP probes for research agent, but we can check process health
           livenessProbe:
             exec:

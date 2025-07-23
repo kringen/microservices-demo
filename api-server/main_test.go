@@ -121,7 +121,8 @@ func TestListJobs(t *testing.T) {
 	server := NewAPIServer()
 	router := server.setupRoutes()
 
-	// Create test research jobs
+	// Create test research jobs with different timestamps
+	now := time.Now()
 	testJobs := []*shared.Job{
 		{
 			ID:           "test-1",
@@ -130,7 +131,7 @@ func TestListJobs(t *testing.T) {
 			ResearchType: shared.ResearchTypeGeneral,
 			MCPServices:  []shared.MCPService{shared.MCPServiceWeb},
 			Status:       shared.JobStatusPending,
-			CreatedAt:    time.Now(),
+			CreatedAt:    now.Add(-2 * time.Hour), // Created 2 hours ago
 		},
 		{
 			ID:           "test-2",
@@ -139,7 +140,16 @@ func TestListJobs(t *testing.T) {
 			ResearchType: shared.ResearchTypeTechnical,
 			MCPServices:  []shared.MCPService{shared.MCPServiceWeb, shared.MCPServiceGitHub},
 			Status:       shared.JobStatusCompleted,
-			CreatedAt:    time.Now(),
+			CreatedAt:    now.Add(-1 * time.Hour), // Created 1 hour ago
+		},
+		{
+			ID:           "test-3",
+			Title:        "Research 3",
+			Query:        "Third test research",
+			ResearchType: shared.ResearchTypeGeneral,
+			MCPServices:  []shared.MCPService{shared.MCPServiceWeb},
+			Status:       shared.JobStatusProcessing,
+			CreatedAt:    now, // Created now (most recent)
 		},
 	}
 
@@ -168,8 +178,25 @@ func TestListJobs(t *testing.T) {
 		t.Fatal("Expected jobs array in response")
 	}
 
-	if len(jobs) != 2 {
-		t.Errorf("Expected 2 jobs, got %d", len(jobs))
+	if len(jobs) != 3 {
+		t.Errorf("Expected 3 jobs, got %d", len(jobs))
+	}
+
+	// Verify jobs are sorted by CreatedAt in descending order (newest first)
+	firstJob := jobs[0].(map[string]interface{})
+	secondJob := jobs[1].(map[string]interface{})
+	thirdJob := jobs[2].(map[string]interface{})
+
+	if firstJob["id"].(string) != "test-3" {
+		t.Errorf("Expected first job to be test-3 (newest), got %s", firstJob["id"].(string))
+	}
+
+	if secondJob["id"].(string) != "test-2" {
+		t.Errorf("Expected second job to be test-2 (middle), got %s", secondJob["id"].(string))
+	}
+
+	if thirdJob["id"].(string) != "test-1" {
+		t.Errorf("Expected third job to be test-1 (oldest), got %s", thirdJob["id"].(string))
 	}
 }
 
