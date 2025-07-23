@@ -36,9 +36,11 @@ func TestEndToEndJobFlow(t *testing.T) {
 	}
 
 	// Create a job
-	jobRequest := shared.JobRequest{
-		Title:       "Integration Test Job",
-		Description: "A job created during integration testing",
+	jobRequest := shared.ResearchRequest{
+		Title:        "Integration Test Job",
+		Query:        "Research artificial intelligence trends and applications",
+		ResearchType: shared.ResearchTypeGeneral,
+		MCPServices:  []shared.MCPService{shared.MCPServiceWeb},
 	}
 
 	jobData, err := json.Marshal(jobRequest)
