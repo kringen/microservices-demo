@@ -691,11 +691,103 @@ const researchStatusTemplate = `
             }
         });
 
-        // Auto-refresh research status pages every 3 seconds
+        // Auto-refresh job status via AJAX every 3 seconds
         if (window.location.pathname.includes('/status/')) {
-            setInterval(function() {
-                window.location.reload();
-            }, 3000);
+            const jobId = window.location.pathname.split('/status/')[1];
+            
+            function refreshJobStatus() {
+                fetch('/api/jobs/' + jobId)
+                    .then(response => response.json())
+                    .then(job => {
+                        // Update status badge
+                        const statusBadge = document.querySelector('.badge');
+                        if (statusBadge) {
+                            statusBadge.className = 'badge bg-' + getStatusColor(job.status);
+                            statusBadge.textContent = job.status.charAt(0).toUpperCase() + job.status.slice(1);
+                        }
+                        
+                        // Update confidence if present
+                        const confidenceElement = document.querySelector('.progress-bar');
+                        if (confidenceElement && job.confidence) {
+                            confidenceElement.style.width = (job.confidence * 100) + '%';
+                        }
+                        
+                        // Update result if completed
+                        const resultContainer = document.getElementById('research-result-content');
+                        if (job.result && resultContainer) {
+                            // Only update if content has changed
+                            if (resultContainer.textContent !== job.result) {
+                                resultContainer.textContent = job.result;
+                                // Re-render markdown
+                                if (typeof marked !== 'undefined') {
+                                    resultContainer.innerHTML = marked.parse(job.result);
+                                }
+                            }
+                        }
+                        
+                        // Update sources
+                        const sourcesContainer = document.querySelector('.sources-list');
+                        if (job.sources && sourcesContainer && job.sources.length > 0) {
+                            // Update sources count in header
+                            const sourcesHeader = document.querySelector('.card-header h6');
+                            if (sourcesHeader) {
+                                sourcesHeader.textContent = 'Sources (' + job.sources.length + ')';
+                            }
+                            
+                            // Update sources list
+                            let sourcesList = '';
+                            job.sources.forEach(function(source, index) {
+                                sourcesList += '<div class="mb-2"><strong>' + (index + 1) + '.</strong> <a href="' + source + '" target="_blank" class="text-decoration-none">' + source + '</a></div>';
+                            });
+                            sourcesContainer.innerHTML = sourcesList;
+                        }
+                        
+                        // Update completion time if job is done
+                        if (job.completed_at) {
+                            const durationElements = document.querySelectorAll('strong');
+                            durationElements.forEach(function(el) {
+                                if (el.textContent === 'Duration:') {
+                                    const nextElement = el.parentNode.querySelector('span, br + *');
+                                    if (nextElement && nextElement.textContent.includes('In progress')) {
+                                        const completedTime = new Date(job.completed_at).toLocaleString();
+                                        el.textContent = 'Completed:';
+                                        el.nextSibling.textContent = '\n' + completedTime;
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // Stop refreshing if job is completed or failed
+                        if (job.status === 'completed' || job.status === 'failed') {
+                            clearInterval(statusRefreshInterval);
+                            
+                            // Update auto-refresh message
+                            const autoRefreshMsg = document.querySelector('.auto-refresh');
+                            if (autoRefreshMsg) {
+                                autoRefreshMsg.innerHTML = '<small class="text-muted"><em>Research completed. Auto-refresh stopped.</em></small>';
+                            }
+                        }
+                    })
+                    .catch(function(error) {
+                        console.error('Error refreshing job status:', error);
+                    });
+            }
+            
+            function getStatusColor(status) {
+                switch (status) {
+                    case 'pending': return 'warning';
+                    case 'processing': return 'info';
+                    case 'completed': return 'success';
+                    case 'failed': return 'danger';
+                    default: return 'secondary';
+                }
+            }
+            
+            // Start auto-refresh interval
+            const statusRefreshInterval = setInterval(refreshJobStatus, 3000);
+            
+            // Initial refresh
+            refreshJobStatus();
         }
     </script>
 </body>
