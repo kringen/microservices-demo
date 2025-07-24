@@ -594,9 +594,11 @@ const researchStatusTemplate = `
                         {{if .Job.Result}}
                         <hr>
                         <div class="alert alert-success">
-                            <strong>Result:</strong><br>
-                            {{.Job.Result}}
+                            <strong>Result:</strong>
+                            <div class="job-result">{{.Job.Result}}</div>
                         </div>
+                        {{else}}
+                        <div class="job-result"></div>
                         {{end}}
                         
                         {{if .Job.Error}}
@@ -604,6 +606,40 @@ const researchStatusTemplate = `
                         <div class="alert alert-danger">
                             <strong>Research Failed:</strong><br>
                             {{.Job.Error}}
+                        </div>
+                        {{end}}
+                        
+                        {{if .Job.Sources}}
+                        <hr>
+                        <div class="sources-section">
+                            <strong>Sources:</strong>
+                            <ul class="sources-list">
+                                {{range .Job.Sources}}
+                                <li><a href="{{.}}" target="_blank" rel="noopener">{{.}}</a></li>
+                                {{end}}
+                            </ul>
+                        </div>
+                        {{else}}
+                        <div class="sources-section" style="display: none;">
+                            <strong>Sources:</strong>
+                            <ul class="sources-list"></ul>
+                        </div>
+                        {{end}}
+                        
+                        {{if .Job.Confidence}}
+                        <hr>
+                        <div class="confidence-section">
+                            <small class="confidence-text text-muted">Confidence: {{printf "%.0f%%" (multiply .Job.Confidence 100)}}</small>
+                            <div class="progress confidence-bar mt-1">
+                                <div class="progress-bar" style="width: {{printf "%.0f%%" (multiply .Job.Confidence 100)}}"></div>
+                            </div>
+                        </div>
+                        {{else}}
+                        <div class="confidence-section" style="display: none;">
+                            <small class="confidence-text text-muted"></small>
+                            <div class="progress confidence-bar mt-1">
+                                <div class="progress-bar" style="width: 0%"></div>
+                            </div>
                         </div>
                         {{end}}
                         
@@ -631,7 +667,7 @@ const researchStatusTemplate = `
                 
                 <div class="auto-refresh mt-3">
                     <small class="text-muted">
-                        <em>This page auto-refreshes every 3 seconds while research is in progress.</em>
+                        <em>Status updates automatically every 3 seconds (no page reload required).</em>
                     </small>
                 </div>
             </div>
@@ -641,61 +677,89 @@ const researchStatusTemplate = `
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
     <script>
-        // Render markdown in research results
-        document.addEventListener('DOMContentLoaded', function() {
-            const resultElement = document.getElementById('research-result-content');
-            if (resultElement && resultElement.textContent.trim()) {
-                const markdownText = resultElement.textContent;
-                // Configure marked with safe defaults
-                marked.setOptions({
-                    breaks: true,        // Convert line breaks to <br>
-                    gfm: true,          // GitHub Flavored Markdown
-                    sanitize: false,    // We trust the AI output, but you might want to sanitize
-                    smartLists: true,   // Use smarter list behavior
-                    smartypants: true   // Use smart quotes and dashes
-                });
-                
-                // Render markdown to HTML
-                const htmlContent = marked.parse(markdownText);
-                resultElement.innerHTML = htmlContent;
-                
-                // Add some custom styling to the rendered content
-                resultElement.style.lineHeight = '1.6';
-                resultElement.style.fontSize = '15px';
-                
-                // Style tables if any
-                const tables = resultElement.querySelectorAll('table');
-                tables.forEach(table => {
-                    table.classList.add('table', 'table-striped', 'table-sm');
-                    table.style.marginTop = '1rem';
-                });
-                
-                // Style code blocks
-                const codeBlocks = resultElement.querySelectorAll('pre code');
-                codeBlocks.forEach(block => {
-                    block.style.backgroundColor = '#f8f9fa';
-                    block.style.padding = '1rem';
-                    block.style.borderRadius = '0.375rem';
-                    block.style.fontSize = '14px';
-                });
-                
-                // Style blockquotes
-                const blockquotes = resultElement.querySelectorAll('blockquote');
-                blockquotes.forEach(quote => {
-                    quote.style.borderLeft = '4px solid #dee2e6';
-                    quote.style.paddingLeft = '1rem';
-                    quote.style.marginLeft = '0';
-                    quote.style.fontStyle = 'italic';
-                    quote.style.color = '#6c757d';
-                });
-            }
-        });
-
-        // Auto-refresh research status pages every 3 seconds
+        // Auto-refresh job status via AJAX instead of page reload
         if (window.location.pathname.includes('/status/')) {
-            setInterval(function() {
-                window.location.reload();
-            }, 3000);
+            const jobId = window.location.pathname.split('/').pop();
+            let statusRefreshInterval;
+            
+            function refreshJobStatus() {
+                fetch('/api/jobs/' + jobId)
+                    .then(response => response.json())
+                    .then(job => {
+                        // Update job status badge
+                        const statusBadge = document.querySelector('.badge');
+                        if (statusBadge) {
+                            statusBadge.className = 'badge bg-' + getStatusColor(job.status) + ' fs-6';
+                            statusBadge.textContent = job.status;
+                        }
+                        
+                        // Update confidence if present
+                        if (job.confidence) {
+                            const confidenceText = document.querySelector('.confidence-text');
+                            const confidenceBar = document.querySelector('.confidence-bar .progress-bar');
+                            const confidenceSection = document.querySelector('.confidence-section');
+                            if (confidenceText && confidenceBar && confidenceSection) {
+                                const confidencePercent = Math.round(job.confidence * 100);
+                                confidenceText.textContent = 'Confidence: ' + confidencePercent + '%';
+                                confidenceBar.style.width = confidencePercent + '%';
+                                confidenceSection.style.display = 'block';
+                            }
+                        }
+                        
+                        // Update result content if job is completed
+                        if (job.status === 'completed' && job.result) {
+                            const resultDiv = document.querySelector('.job-result');
+                            if (resultDiv && !resultDiv.innerHTML.trim()) {
+                                resultDiv.innerHTML = '<div class="research-result">' + 
+                                    job.result.replace(/\n/g, '<br>') + '</div>';
+                            }
+                        }
+                        
+                        // Update sources if available
+                        if (job.sources && job.sources.length > 0) {
+                            const sourcesDiv = document.querySelector('.sources-list');
+                            const sourcesSection = document.querySelector('.sources-section');
+                            if (sourcesDiv && sourcesSection && !sourcesDiv.innerHTML.trim()) {
+                                let sourcesHTML = '';
+                                job.sources.forEach(source => {
+                                    sourcesHTML += '<li><a href="' + source + '" target="_blank" rel="noopener">' + 
+                                        source + '</a></li>';
+                                });
+                                sourcesDiv.innerHTML = sourcesHTML;
+                                sourcesSection.style.display = 'block';
+                            }
+                        }
+                        
+                        // Stop refreshing if job is completed or failed
+                        if (job.status === 'completed' || job.status === 'failed') {
+                            clearInterval(statusRefreshInterval);
+                            // Update the auto-refresh message
+                            const autoRefreshDiv = document.querySelector('.auto-refresh em');
+                            if (autoRefreshDiv) {
+                                autoRefreshDiv.textContent = 'Job ' + job.status + '. Auto-refresh stopped.';
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.log('Error refreshing job status:', error);
+                    });
+            }
+            
+            function getStatusColor(status) {
+                switch(status) {
+                    case 'completed': return 'success';
+                    case 'failed': return 'danger';
+                    case 'processing': return 'warning';
+                    case 'pending': return 'secondary';
+                    default: return 'primary';
+                }
+            }
+            
+            // Start auto-refresh every 3 seconds, but only if job is not completed
+            const currentStatus = document.querySelector('.badge').textContent.toLowerCase().trim();
+            if (currentStatus !== 'completed' && currentStatus !== 'failed') {
+                statusRefreshInterval = setInterval(refreshJobStatus, 3000);
+            }
         }
     </script>
 </body>
