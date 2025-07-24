@@ -1,4 +1,4 @@
-.PHONY: all build test clean run run-api run-job run-frontend stop-all deps rabbitmq-up rabbitmq-down docker-build docker-up docker-down docker-build-push docker-push docker-build-push-tag
+.PHONY: all build test clean run run-api run-job run-frontend stop-all deps rabbitmq-up rabbitmq-down docker-build docker-up docker-down docker-build-push docker-push docker-build-push-tag docker-clean docker-clean-all
 
 # Default target
 all: deps test build
@@ -209,6 +209,30 @@ docker-logs:
 # Docker: Restart stack
 docker-restart: docker-down docker-up
 
+# Docker: Clean up Docker images and containers
+docker-clean:
+	@echo "🧹 Cleaning up Docker images and containers..."
+	@echo "Stopping and removing all containers..."
+	docker-compose down --remove-orphans || true
+	@echo "Removing dangling images..."
+	docker image prune -f
+	@echo "Removing microservices-demo images..."
+	docker images | grep "microservices-" | awk '{print $$3}' | xargs -r docker rmi -f || true
+	@echo "Removing unused volumes..."
+	docker volume prune -f
+	@echo "Removing unused networks..."
+	docker network prune -f
+	@echo "✅ Docker cleanup complete!"
+
+# Docker: Clean everything (including all unused images)
+docker-clean-all: docker-clean
+	@echo "🧹 Performing deep Docker cleanup..."
+	@echo "Removing all unused images (not just dangling)..."
+	docker image prune -a -f
+	@echo "Removing all stopped containers..."
+	docker container prune -f
+	@echo "✅ Deep Docker cleanup complete!"
+
 # Run all services (requires multiple terminals)
 run-all:
 	@echo "To run all services, open 3 separate terminals and run:"
@@ -308,6 +332,8 @@ help:
 	@echo "  make docker-down    - Stop docker-compose stack"
 	@echo "  make docker-logs    - View container logs"
 	@echo "  make docker-restart - Restart entire stack"
+	@echo "  make docker-clean   - Clean up Docker images and containers"
+	@echo "  make docker-clean-all - Deep clean (removes all unused images)"
 	@echo ""
 	@echo "📦 Docker Registry Commands:"
 	@echo "  make docker-build-push REPO=<registry> - Build and push to registry"
@@ -334,6 +360,8 @@ help:
 	@echo "🧹 Cleanup:"
 	@echo "  make clean          - Clean build artifacts"
 	@echo "  make stop-all       - Stop all background services"
+	@echo "  make docker-clean   - Clean Docker images and containers"
+	@echo "  make docker-clean-all - Deep Docker cleanup (removes all unused images)"
 	@echo ""
 	@echo "📚 Individual Service Help:"
 	@echo "  cd api-server && make help"
