@@ -108,7 +108,7 @@ func (f *Frontend) createInlineTemplates() {
 		"multiply": func(a, b float64) float64 {
 			return a * b
 		},
-	}).Parse(indexTemplate + jobStatusTemplate))
+	}).Parse(indexTemplate + researchStatusTemplate))
 }
 
 func (f *Frontend) homePage(c *gin.Context) {
@@ -361,8 +361,8 @@ func (f *Frontend) apiGetJob(c *gin.Context) {
 }
 
 func (f *Frontend) submitJobAPI(c *gin.Context) {
-	var jobRequest shared.JobRequest
-	if err := c.ShouldBindJSON(&jobRequest); err != nil {
+	var researchRequest shared.ResearchRequest
+	if err := c.ShouldBindJSON(&researchRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid request format",
 		})
