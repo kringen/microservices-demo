@@ -108,6 +108,12 @@ func (f *Frontend) createInlineTemplates() {
 		"multiply": func(a, b float64) float64 {
 			return a * b
 		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"hasPrefix": func(s, prefix string) bool {
+			return len(s) >= len(prefix) && s[:len(prefix)] == prefix
+		},
 	}).Parse(indexTemplate + researchStatusTemplate))
 }
 
