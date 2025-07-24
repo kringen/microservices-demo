@@ -351,6 +351,21 @@ func (f *Frontend) apiJobs(c *gin.Context) {
 	})
 }
 
+func (f *Frontend) apiGetJob(c *gin.Context) {
+	jobID := c.Param("id")
+
+	job, err := f.fetchJob(jobID)
+	if err != nil {
+		log.Printf("Failed to fetch job %s: %v", jobID, err)
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Job not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, job)
+}
+
 func (f *Frontend) submitResearchAPI(c *gin.Context) {
 	var researchRequest shared.ResearchRequest
 	if err := c.ShouldBindJSON(&researchRequest); err != nil {
@@ -391,6 +406,7 @@ func (f *Frontend) setupRoutes() *gin.Engine {
 	r.GET("/status/:id", f.researchStatus)
 	r.GET("/api/status", f.apiStatus)
 	r.GET("/api/jobs", f.apiJobs)
+	r.GET("/api/jobs/:id", f.apiGetJob)
 	r.POST("/api/jobs", f.submitResearchAPI)
 
 	// Static files (if needed)
