@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -74,15 +75,18 @@ func (s *APIServer) updateJobStatus(result shared.JobResult) {
 		job.Status = result.Status
 		job.Result = result.Result
 		job.Error = result.Error
+		job.Sources = result.Sources
+		job.Confidence = result.Confidence
+		job.TokensUsed = result.TokensUsed
 
 		// Handle different status updates
 		switch result.Status {
 		case shared.JobStatusProcessing:
-			// Set started time when job begins processing
+			// Set started time when research begins processing
 			if job.StartedAt == nil {
 				startTime := result.CompletedAt // Using CompletedAt as the timestamp for when processing started
 				job.StartedAt = &startTime
-				log.Printf("Job %s started processing at %v", result.JobID, startTime)
+				log.Printf("Research %s started processing at %v", result.JobID, startTime)
 			}
 		case shared.JobStatusCompleted, shared.JobStatusFailed:
 			// Set completion time for final states
@@ -91,53 +95,57 @@ func (s *APIServer) updateJobStatus(result shared.JobResult) {
 			// Calculate and log processing duration
 			if job.StartedAt != nil {
 				duration := result.CompletedAt.Sub(*job.StartedAt)
-				log.Printf("Job %s completed in %v", result.JobID, duration)
+				log.Printf("Research %s completed in %v with confidence %.2f", result.JobID, duration, result.Confidence)
 			}
 		}
 
 		// Log status change for monitoring
 		if previousStatus != result.Status {
-			log.Printf("Job %s status changed: %s -> %s", result.JobID, previousStatus, result.Status)
+			log.Printf("Research %s status changed: %s -> %s", result.JobID, previousStatus, result.Status)
 		}
 	} else {
-		log.Printf("Received result for unknown job: %s", result.JobID)
+		log.Printf("Received result for unknown research: %s", result.JobID)
 	}
 }
 
 func (s *APIServer) createJob(c *gin.Context) {
-	var req shared.JobRequest
+	var req shared.ResearchRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	job := &shared.Job{
-		ID:          uuid.New().String(),
-		Title:       req.Title,
-		Description: req.Description,
-		Status:      shared.JobStatusPending,
-		CreatedAt:   time.Now(),
+		ID:           uuid.New().String(),
+		Title:        req.Title,
+		Query:        req.Query,
+		ResearchType: req.ResearchType,
+		MCPServices:  req.MCPServices,
+		Status:       shared.JobStatusPending,
+		CreatedAt:    time.Now(),
 	}
 
 	s.jobsMutex.Lock()
 	s.jobs[job.ID] = job
 	s.jobsMutex.Unlock()
 
-	// Send job to queue (only if RabbitMQ is initialized)
+	// Send research request to queue (only if RabbitMQ is initialized)
 	if s.rabbitmq != nil {
 		jobMessage := shared.JobMessage{
-			JobID:       job.ID,
-			Title:       job.Title,
-			Description: job.Description,
+			JobID:        job.ID,
+			Title:        job.Title,
+			Query:        job.Query,
+			ResearchType: job.ResearchType,
+			MCPServices:  job.MCPServices,
 		}
 
 		if err := s.rabbitmq.PublishJob(jobMessage); err != nil {
-			log.Printf("Failed to publish job: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue job"})
+			log.Printf("Failed to publish research request: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to queue research request"})
 			return
 		}
 	} else {
-		log.Println("RabbitMQ not initialized - job not queued (test mode?)")
+		log.Println("RabbitMQ not initialized - research request not queued (test mode?)")
 	}
 
 	c.JSON(http.StatusCreated, job)
@@ -166,6 +174,11 @@ func (s *APIServer) listJobs(c *gin.Context) {
 	}
 	s.jobsMutex.RUnlock()
 
+	// Sort jobs by CreatedAt in descending order (newest first)
+	sort.Slice(jobs, func(i, j int) bool {
+		return jobs[i].CreatedAt.After(jobs[j].CreatedAt)
+	})
+
 	c.JSON(http.StatusOK, gin.H{"jobs": jobs})
 }
 
@@ -184,6 +197,30 @@ func (s *APIServer) healthCheck(c *gin.Context) {
 	}
 
 	status["rabbitmq"] = "connected"
+
+	// Add Ollama server endpoint information
+	ollamaURL := getEnvOrDefault("OLLAMA_URL", "http://localhost:11434")
+	status["ollama"] = gin.H{
+		"endpoint": ollamaURL,
+		"model":    getEnvOrDefault("OLLAMA_MODEL", "llama3.2"),
+	}
+
+	// Add MCP configuration information
+	mcpTestMode := getEnvOrDefault("MCP_TEST_MODE", "false") == "true"
+	mcpInfo := gin.H{
+		"test_mode": mcpTestMode,
+	}
+
+	if !mcpTestMode {
+		mcpInfo["endpoints"] = gin.H{
+			"web_search": getEnvOrDefault("MCP_WEB_SERVER_URL", "http://localhost:3001"),
+			"github":     getEnvOrDefault("MCP_GITHUB_SERVER_URL", "http://localhost:3002"),
+			"files":      getEnvOrDefault("MCP_FILES_SERVER_URL", "http://localhost:3003"),
+		}
+	}
+
+	status["mcp"] = mcpInfo
+
 	c.JSON(http.StatusOK, status)
 }
 
@@ -213,6 +250,14 @@ func (s *APIServer) setupRoutes() *gin.Engine {
 	}
 
 	return r
+}
+
+// Utility function to get environment variable with default
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
 
 func main() {

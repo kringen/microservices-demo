@@ -26,24 +26,24 @@ func TestHomePage(t *testing.T) {
 	}
 
 	body := w.Body.String()
-	if !strings.Contains(body, "Microservices Demo") {
-		t.Error("Expected page to contain 'Microservices Demo'")
+	if !strings.Contains(body, "AI Research Agent") {
+		t.Error("Expected page to contain 'AI Research Agent'")
 	}
-	if !strings.Contains(body, "Create New Job") {
-		t.Error("Expected page to contain 'Create New Job'")
+	if !strings.Contains(body, "New Research Request") {
+		t.Error("Expected page to contain 'New Research Request'")
 	}
 }
 
-func TestSubmitJobForm(t *testing.T) {
+func TestSubmitResearchForm(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	frontend := NewFrontend()
 	frontend.createInlineTemplates()
 	router := frontend.setupRoutes()
 
-	// Test form submission with missing title
+	// Test form submission with missing title and query
 	form := url.Values{}
-	form.Add("description", "Test description")
+	form.Add("research_type", "general")
 
 	req, _ := http.NewRequest("POST", "/submit", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -55,8 +55,8 @@ func TestSubmitJobForm(t *testing.T) {
 	}
 
 	location := w.Header().Get("Location")
-	if !strings.Contains(location, "error=Title") {
-		t.Error("Expected redirect to contain error message about title")
+	if !strings.Contains(location, "error=Job") || !strings.Contains(location, "title") || !strings.Contains(location, "instructions") {
+		t.Errorf("Expected redirect to contain error message about title and query, got: %s", location)
 	}
 }
 
@@ -87,7 +87,7 @@ func TestTemplateCreation(t *testing.T) {
 	}
 
 	// Test that templates are properly defined
-	templates := []string{"index", "job-status"}
+	templates := []string{"index", "research-status"}
 	for _, tmplName := range templates {
 		if frontend.templates.Lookup(tmplName) == nil {
 			t.Errorf("Expected template %s to be defined", tmplName)
@@ -113,9 +113,7 @@ func TestFormatTimeFunction(t *testing.T) {
 	frontend := NewFrontend()
 	frontend.createInlineTemplates()
 
-	// The formatTime function should be available in templates
-	tmpl := frontend.templates.Lookup("job-status")
-	if tmpl == nil {
-		t.Fatal("Expected job-status template to exist")
+	if frontend.templates.Lookup("research-status") == nil {
+		t.Error("Expected research-status template to exist")
 	}
 }

@@ -18,6 +18,10 @@ resources:
   - frontend-service.yaml
   - frontend-deployment.yaml
   - ingress.yaml
+  # Ollama resources (comment out if using external Ollama)
+  # - ollama-pvc.yaml
+  # - ollama-deployment.yaml
+  # - ollama-service.yaml
 
 labels:
   - includeSelectors: true
@@ -34,6 +38,9 @@ images:
     newTag: latest
   - name: microservices-frontend
     newName: localhost:5000/microservices-frontend
+    newTag: latest
+  - name: ollama/ollama
+    newName: ollama/ollama
     newTag: latest
 
 namespace: microservices-demo

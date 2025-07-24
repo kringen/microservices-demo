@@ -20,20 +20,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: research-agent  # Updated from job-runner
+  name: research-agent
   namespace: microservices-demo
 spec:
   replicas: 1  # Single replica for development
   template:
     spec:
       containers:
-        - name: research-agent  # Updated from job-runner
+        - name: research-agent
           resources:
             requests:
-              memory: "256Mi"  # Increased for AI workloads
+              memory: "128Mi"  # Less memory needed without local AI
               cpu: "100m"
             limits:
-              memory: "512Mi"  # Increased for AI workloads
+              memory: "256Mi"  # Reduced since AI is external
               cpu: "500m"
 ---
 apiVersion: apps/v1
@@ -54,22 +54,3 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "200m"
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ollama
-  namespace: microservices-demo
-spec:
-  replicas: 1
-  template:
-    spec:
-      containers:
-        - name: ollama
-          resources:
-            requests:
-              memory: "2Gi"  # Reduced for development
-              cpu: "500m"
-            limits:
-              memory: "4Gi"  # Reduced for development
-              cpu: "2000m"

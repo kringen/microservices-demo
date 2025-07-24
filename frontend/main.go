@@ -60,6 +60,15 @@ func (f *Frontend) loadTemplates() error {
 				return "secondary"
 			}
 		},
+		"multiply": func(a, b float64) float64 {
+			return a * b
+		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"hasPrefix": func(s, prefix string) bool {
+			return len(s) >= len(prefix) && s[:len(prefix)] == prefix
+		},
 	}).ParseGlob("templates/*.html")
 
 	if err != nil {
@@ -122,24 +131,55 @@ func (f *Frontend) homePage(c *gin.Context) {
 	}
 }
 
-func (f *Frontend) submitJob(c *gin.Context) {
-	title := c.PostForm("title")
-	description := c.PostForm("description")
+func (f *Frontend) submitResearch(c *gin.Context) {
+	// Handle both form data and JSON
+	var researchRequest shared.ResearchRequest
 
-	if title == "" {
-		c.Redirect(http.StatusSeeOther, "/?error=Title is required")
-		return
+	if c.GetHeader("Content-Type") == "application/json" {
+		if err := c.ShouldBindJSON(&researchRequest); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"error":   "Invalid request format",
+			})
+			return
+		}
+	} else {
+		// Handle form submission
+		title := c.PostForm("title")
+		query := c.PostForm("query")
+		researchType := c.PostForm("research_type")
+		mcpServices := c.PostFormArray("mcp_services")
+
+		if title == "" || query == "" {
+			c.Redirect(http.StatusSeeOther, "/?error=Job title and instructions are required")
+			return
+		}
+
+		// Convert string array to MCPService array
+		var services []shared.MCPService
+		for _, service := range mcpServices {
+			services = append(services, shared.MCPService(service))
+		}
+
+		researchRequest = shared.ResearchRequest{
+			Title:        title,
+			Query:        query,
+			ResearchType: shared.ResearchType(researchType),
+			MCPServices:  services,
+		}
 	}
 
-	jobRequest := shared.JobRequest{
-		Title:       title,
-		Description: description,
-	}
-
-	job, err := f.createJob(jobRequest)
+	job, err := f.createResearchJob(researchRequest)
 	if err != nil {
-		log.Printf("Failed to create job: %v", err)
-		c.Redirect(http.StatusSeeOther, "/?error=Failed to create job")
+		log.Printf("Failed to create research job: %v", err)
+		if c.GetHeader("Accept") == "application/json" || c.GetHeader("Content-Type") == "application/json" {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"error":   "Failed to start research",
+			})
+		} else {
+			c.Redirect(http.StatusSeeOther, "/?error=Failed to start research")
+		}
 		return
 	}
 
@@ -148,32 +188,32 @@ func (f *Frontend) submitJob(c *gin.Context) {
 		c.JSON(http.StatusCreated, gin.H{
 			"success": true,
 			"job":     job,
-			"message": "Job created successfully",
+			"message": "Research started successfully",
 		})
 		return
 	}
 
-	// For form submissions, redirect to job status page
+	// For form submissions, redirect to research status page
 	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/status/%s?created=true", job.ID))
 }
 
-func (f *Frontend) jobStatus(c *gin.Context) {
+func (f *Frontend) researchStatus(c *gin.Context) {
 	jobID := c.Param("id")
 
 	job, err := f.fetchJob(jobID)
 	if err != nil {
-		log.Printf("Failed to fetch job: %v", err)
-		c.String(http.StatusNotFound, "Job not found")
+		log.Printf("Failed to fetch research: %v", err)
+		c.String(http.StatusNotFound, "Research not found")
 		return
 	}
 
 	data := gin.H{
-		"Title": fmt.Sprintf("Job Status - %s", job.Title),
+		"Title": fmt.Sprintf("Research Status - %s", job.Title),
 		"Job":   job,
 	}
 
 	c.Header("Content-Type", "text/html")
-	if err := f.templates.ExecuteTemplate(c.Writer, "job-status", data); err != nil {
+	if err := f.templates.ExecuteTemplate(c.Writer, "research-status", data); err != nil {
 		log.Printf("Template execution error: %v", err)
 		c.String(http.StatusInternalServerError, "Template error")
 	}
@@ -211,8 +251,8 @@ func (f *Frontend) apiStatus(c *gin.Context) {
 	c.JSON(resp.StatusCode, healthStatus)
 }
 
-func (f *Frontend) createJob(jobRequest shared.JobRequest) (*shared.Job, error) {
-	body, err := json.Marshal(jobRequest)
+func (f *Frontend) createResearchJob(researchRequest shared.ResearchRequest) (*shared.Job, error) {
+	body, err := json.Marshal(researchRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -329,18 +369,18 @@ func (f *Frontend) submitJobAPI(c *gin.Context) {
 		return
 	}
 
-	if jobRequest.Title == "" {
+	if researchRequest.Title == "" || researchRequest.Query == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Title is required",
+			"error": "Job title and instructions are required",
 		})
 		return
 	}
 
-	job, err := f.createJob(jobRequest)
+	job, err := f.createResearchJob(researchRequest)
 	if err != nil {
-		log.Printf("Failed to create job: %v", err)
+		log.Printf("Failed to create research job: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create job",
+			"error": "Failed to start research",
 		})
 		return
 	}
@@ -348,7 +388,7 @@ func (f *Frontend) submitJobAPI(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"success": true,
 		"job":     job,
-		"message": "Job created successfully",
+		"message": "Research started successfully",
 	})
 }
 
@@ -356,8 +396,8 @@ func (f *Frontend) setupRoutes() *gin.Engine {
 	r := gin.Default()
 
 	r.GET("/", f.homePage)
-	r.POST("/submit", f.submitJob)
-	r.GET("/status/:id", f.jobStatus)
+	r.POST("/submit", f.submitResearch)
+	r.GET("/status/:id", f.researchStatus)
 	r.GET("/api/status", f.apiStatus)
 	r.GET("/api/jobs", f.apiJobs)
 	r.GET("/api/jobs/:id", f.apiGetJob)
